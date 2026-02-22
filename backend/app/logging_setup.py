@@ -33,10 +33,10 @@ def setup_logging(log_path: Path, level: str = "INFO") -> None:
             # Uvicorn / FastAPI server logs
             "uvicorn": {"level": level, "propagate": True},
             "uvicorn.error": {"level": level, "propagate": True},
-            "uvicorn.access": {"level": level, "propagate": True},
+            "uvicorn.access": {"level": "WARNING", "propagate": True},
 
             # FastAPI / Starlette internals (usually propagate via root, but ok to include)
-            "fastapi": {"level": level, "propagate": True},
+            "fastapi": {"level": "WARNING", "propagate": True},
             "starlette": {"level": level, "propagate": True},
 
             # aiosqlite (if it logs in your setup)

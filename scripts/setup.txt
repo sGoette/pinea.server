@@ -2,15 +2,30 @@ Create jail
 Add Mounts
 
 pw useradd pineaserver -m -s /usr/sbin/nologin
-chown -R pineaserver:pineaserver pinea.server
+chown -R pineaserver:pineaserver /usr/local/pinea.server
 
 #Download version from github
 cd /usr/local/pinea.server/releases
 fetch https://github.com/sGoette/pinea.server/releases/download/v0.1.0/pineaserver-v0.1.0.tar.gz
 tar -xzf pineaserver-v0.1.0.tar.gz
 
-mkdir /usr/local/etc/rc.d
+mkdir /usr/local/etc/rc.d ??? why ???
 
+chown -R pineaserver:pineaserver /usr/local/pinea.server
+pw groupmod wheel -m pineaserver
 #Activate release
 ln -sfn /usr/local/pinea.server/releases/v0.1.0 /usr/local/pinea.server/current
 chown -h pineaserver:pineaserver /usr/local/pinea.server/current
+
+
+
+root@pinea:~ # zpool status -v
+no pools available
+root@pinea:~ # ls -lah /usr/local/pinea.server/data/db/
+total 490
+drwxrwxr-x  2 pineaserver  pineaserver     3B Feb 22 18:02 .
+drwxrwxr-x  4 pineaserver  pineaserver     9B Feb 22 14:42 ..
+-rwxrwxr-x  1 pineaserver  pineaserver   1.1M Feb 22 14:31 database.sqlite
+root@pinea:~ # ps aux | grep uvicorn
+root        61868  0.0  0.0  12868  2460 58  S+J  18:08   0:00.00 grep uvicorn
+root@pinea:~ #

@@ -20,6 +20,7 @@ def get_poster_from_url(url: str) -> Optional[str]:
 
         with Image.open(BytesIO(response.content)) as img:
             img.thumbnail((1200, 1200))
+            img.convert('RGB')
             img.save(target, format="JPEG", quality=100)
         return poster_file_name
     except Exception:
