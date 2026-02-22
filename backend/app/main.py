@@ -54,7 +54,7 @@ async def lifespan(api: FastAPI):
     await zeroconf.async_unregister_service(info)
     await zeroconf.async_close()
 
-app = FastAPI(title="WannaWatch.server", lifespan=lifespan)
+app = FastAPI(title="pinea.server", lifespan=lifespan)
 
 app.include_router(health_router)
 app.include_router(settings_router)

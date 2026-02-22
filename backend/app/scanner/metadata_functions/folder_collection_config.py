@@ -11,7 +11,7 @@ async def find_folder_collection_config(start_path: Path) -> list[FolderCollecti
     configs: list[FolderCollectionConfig_Path] = []
 
     while True:
-        candidate = current / '__wannawatch.json'
+        candidate = current / '__pinea.json'
         if candidate.is_file():
             with candidate.open("r", encoding="utf-8") as f:
                 data = jsone.load(f)

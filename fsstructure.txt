@@ -1,4 +1,4 @@
-/usr/local/wannawatch.server -> root dir (run from here)
+/usr/local/pinea.server -> root dir (run from here)
 current (link to current release)
 data
     db
@@ -19,4 +19,4 @@ releases
                 main.py
         frontend
     ...
-wannawatch.pid
+pinea.pid

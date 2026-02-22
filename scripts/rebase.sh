@@ -1,4 +1,4 @@
-cd /usr/local/wannawatch.server/data
+cd /usr/local/pinea.server/data
 rm -rf ./posters/*
 rm -rf ./db/*
-rm ./wannawatch.log
+rm ./pinea.log

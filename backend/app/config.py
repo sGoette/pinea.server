@@ -1,14 +1,14 @@
 import aiosqlite
 from pathlib import Path
 
-BASE_DIR = Path(__file__).parent.parent.parent.parent.resolve() #wannawatch.server folder
+BASE_DIR = Path(__file__).parent.parent.parent.parent.resolve() #pinea.server folder
 POSTER_DIR = BASE_DIR / "data/posters"
 DB_PATH = BASE_DIR / "data/db/database.sqlite"
 HLS_ROOT = BASE_DIR / "data/tmp/hls"
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]      # backend/app -> backend
 REPO_ROOT   = BACKEND_DIR.parent                       # backend -> repo root
-LOG_FILE     = BASE_DIR / "data/wannawatch.log"
+LOG_FILE     = BASE_DIR / "data/pinea.log"
 
 FRONTEND_DIR = REPO_ROOT / "frontend"                  # repo_root/frontend
 INDEX_HTML = FRONTEND_DIR / "index.html"

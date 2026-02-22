@@ -51,7 +51,7 @@ async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Libra
 
         if config.data.useScraper:
             try:
-                scraper_spec = importlib.util.spec_from_file_location("scraper", config.currentPath / "__wannawatch.py")
+                scraper_spec = importlib.util.spec_from_file_location("scraper", config.currentPath / "__pinea.py")
                 if scraper_spec and scraper_spec.loader:
                     scraper = importlib.util.module_from_spec(spec=scraper_spec)
                     scraper_spec.loader.exec_module(scraper)

@@ -7,8 +7,8 @@ if [ -z "$VERSION" ]; then
   exit 1
 fi
 
-cd /usr/local/wannawatch.server/releases
-fetch https://github.com/sGoette/wannaWatch.server/releases/download/$VERSION/wannawatchserver-$VERSION.tar.gz
-tar -xzf wannawatchserver-$VERSION.tar.gz
-cd /usr/local/wannawatch.server/releases/$VERSION
+cd /usr/local/pinea.server/releases
+fetch https://github.com/sGoette/pinea.server/releases/download/$VERSION/pineaserver-$VERSION.tar.gz
+tar -xzf pineaserver-$VERSION.tar.gz
+cd /usr/local/pinea.server/releases/$VERSION
 sh install.sh

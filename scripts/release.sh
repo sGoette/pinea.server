@@ -12,7 +12,7 @@ echo "🚀 Building release $VERSION"
 
 BUILD_DIR="build"
 RELEASE_DIR="$VERSION"
-ARCHIVE_NAME="wannawatchserver-$RELEASE_DIR.tar.gz"
+ARCHIVE_NAME="pineaserver-$RELEASE_DIR.tar.gz"
 
 
 rm -rf "$BUILD_DIR" "$RELEASE_DIR"
@@ -47,8 +47,8 @@ fi
 cp scripts/install.sh "$RELEASE_DIR/install.sh"
 chmod +x "$RELEASE_DIR/install.sh"
 
-cp scripts/wannawatch "$RELEASE_DIR/wannawatch"
-chmod +x "$RELEASE_DIR/wannawatch"
+cp scripts/pinea "$RELEASE_DIR/pinea"
+chmod +x "$RELEASE_DIR/pinea"
 
 cp scripts/update.sh "$RELEASE_DIR/update.sh"
 chmod +x "$RELEASE_DIR/update.sh"

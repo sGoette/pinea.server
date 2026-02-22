@@ -18,7 +18,7 @@ def _local_ip() -> str:
 
 
 async def build_service_info() -> ServiceInfo:
-    SERVICE_TYPE = "_wannawatch._tcp.local."
+    SERVICE_TYPE = "_pinea._tcp.local."
     SERVER_NAME = await GET_SERVER_NAME()
 
     SERVICE_NAME = f"{SERVER_NAME}.{SERVICE_TYPE}"
