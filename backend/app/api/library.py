@@ -1,0 +1,70 @@
+from fastapi import APIRouter, HTTPException, Request
+import aiosqlite
+from app.scanner.jobs import ScanJob
+from app.config import DB_PATH
+from app.models.library import Library, LibraryCreate
+from app.models.notification import Notification, NOTIFICATION_TYPE
+from app.api.websocket_manager import ws_manager
+
+router = APIRouter(prefix="/api/library")
+
+@router.get("/{library_id}", response_model=Library)
+async def get_library(library_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("SELECT * FROM libraries WHERE id = ?", (library_id,))
+        library = await cursor.fetchone()
+        await cursor.close()
+
+    if library is None:
+        raise HTTPException(status_code=404, detail="Library not found")
+
+    return dict(library)
+
+@router.put("", response_model=Library)
+async def create_library(request: Request, library: LibraryCreate):
+    async with aiosqlite.connect(DB_PATH) as db:
+        # TODO: Handle ON CONFLICT. Idealy with a response so the user knows the media_library already exists
+        cursor = await db.execute("INSERT INTO libraries (name, media_folder, type) VALUES (?, ?, ?)", (library.name, library.media_folder, library.type))
+        await db.commit()
+        library_id = cursor.lastrowid
+
+    scanner = request.app.state.scanner
+    scanner.submit(ScanJob(library_id=library_id))
+    # Return the created library
+    if library_id:
+        await ws_manager.broadcast(Notification(type=NOTIFICATION_TYPE.LIBRARIES_UPDATED))
+        return Library(
+            id=library_id,
+            name=library.name,
+            media_folder=library.media_folder,
+            type=library.type
+        )
+    
+@router.post("", response_model=Library)
+async def update_library(library: Library):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE libraries SET name = ?, media_folder = ?, type = ? WHERE id = ?", (library.name, library.media_folder, library.type, library.id))
+        await db.commit()
+
+    #Return the updated library
+    await ws_manager.broadcast(Notification(type=NOTIFICATION_TYPE.LIBRARIES_UPDATED))
+    return library
+
+@router.delete("/{library_id}")
+async def delete_library(request: Request,library_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        # TODO: Delete all thumbnails before deleting the movies and collections!
+        await db.execute("PRAGMA foreign_keys = ON;")
+        cursor = await db.execute("DELETE FROM libraries WHERE id = ?", (library_id,))
+        await db.commit()
+        rowcount = cursor.rowcount
+
+    if rowcount == 0:
+        raise HTTPException(status_code=404, detail="Library not found")
+    
+    scanner = request.app.state.scanner
+    scanner.submit(ScanJob(library_id=library_id))
+    await ws_manager.broadcast(Notification(type=NOTIFICATION_TYPE.LIBRARIES_UPDATED))
+    return {"msg": "Library deleted"}

@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# PROVIDE: wannawatch
+# REQUIRE: LOGIN
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name="wannawatch"
+rcvar=wannawatch_enable
+
+: ${wannawatch_enable:="NO"}
+
+app_dir="/usr/local/wannawatch.server/current"
+log_dir="/usr/local/wannawatch.server/logs"
+log_file="${log_dir}/wannawatch.log"
+pidfile="/usr/local/wannawatch.server/wannawatch.pid"
+
+host="0.0.0.0"
+port="4000"
+
+command="/usr/sbin/daemon"
+procname="/usr/local/bin/python3"
+command_args="-u wannawatchserver /usr/local/bin/python3 -m uvicorn app.main:app --app-dir ${app_dir}/backend --host ${host} --port ${port}"
+
+load_rc_config $name
+run_rc_command "$1"
