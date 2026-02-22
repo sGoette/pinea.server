@@ -1,0 +1,16 @@
+Create jail
+Add Mounts
+
+pw useradd pineaserver -m -s /usr/sbin/nologin
+chown -R pineaserver:pineaserver pinea.server
+
+#Download version from github
+cd /usr/local/pinea.server/releases
+fetch https://github.com/sGoette/pinea.server/releases/download/v0.1.0/pineaserver-v0.1.0.tar.gz
+tar -xzf pineaserver-v0.1.0.tar.gz
+
+mkdir /usr/local/etc/rc.d
+
+#Activate release
+ln -sfn /usr/local/pinea.server/releases/v0.1.0 /usr/local/pinea.server/current
+chown -h pineaserver:pineaserver /usr/local/pinea.server/current
