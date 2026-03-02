@@ -23,8 +23,8 @@ def get_poster_from_file_name(file_name: Path) -> Optional[str]:
         output_path = POSTER_DIR / poster_file_name
         with Image.open(file_name) as img:
             img.thumbnail((1200, 1200))
-            img.convert('RGB')
-            img.save(output_path)
+            rgb_im = img.convert('RGB')
+            rgb_im.save(output_path, format='JPEG', quality=100)
             return poster_file_name
     
     return None
