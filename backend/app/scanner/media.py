@@ -1,15 +1,15 @@
 import asyncio
 import json
-import subprocess
-from pathlib import Path
 import hashlib
+from pathlib import Path
 from random import random
+from datetime import datetime
+
 from app.config import POSTER_DIR
 
 def get_file_hash(path: str) -> str:
     """Generate a consistent hash for a file path"""
-    #TODO: Add date based hashing, so it's not file dependant
-    return hashlib.md5(path.encode("utf-8")).hexdigest()
+    return hashlib.md5(f"{path}{datetime.now().timestamp()}".encode("utf-8")).hexdigest()
 
 async def get_video_file_metadata(path: Path) -> dict:
     """

@@ -2,7 +2,6 @@ import aiosqlite
 from pathlib import Path
 import importlib.util
 from typing import Optional
-from Levenshtein import ratio
 
 import logging
 log = logging.getLogger(__name__)

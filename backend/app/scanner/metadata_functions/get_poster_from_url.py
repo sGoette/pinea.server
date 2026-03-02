@@ -1,5 +1,4 @@
 import requests
-import mimetypes
 from typing import Optional
 from PIL import Image
 from io import BytesIO
@@ -12,7 +11,7 @@ from app.config import POSTER_DIR
 
 def get_poster_from_url(url: str) -> Optional[str]:
     try: 
-        response = requests.get(url, timeout=10)
+        response = requests.get(url)
         response.raise_for_status()
 
         poster_file_name = f"{get_file_hash(str(url))}.jpg"

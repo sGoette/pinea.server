@@ -2,7 +2,6 @@ import aiosqlite
 from pathlib import Path
 from typing import Optional
 
-from app.models.folder_collection_config import FolderCollectionConfig_Path
 from app.config import DB_PATH, COLLECTION_POSTER_CANDIDATE_NAMES
 from app.models.collection import Collection
 from app.models.movie import Movie
