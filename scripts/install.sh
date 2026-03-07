@@ -8,9 +8,9 @@ CURRENT_LINK="$ROOT/current"
 # Must run from inside a release folder like /usr/local/pinea.server/releases/v0.1.12
 RELEASE_DIR="$(pwd)"
 
-info() { echo "✅ $*"; }
+info() { echo "✅  $*"; }
 warn() { echo "⚠️  $*" >&2; }
-die() { echo "❌ $*" >&2; exit 1; }
+die() { echo "❌  $*" >&2; exit 1; }
 
 # --- Preconditions ---
 [ "$(id -u)" -eq 0 ] || die "Run as root."
