@@ -4,7 +4,7 @@ import type { Library } from "./types/Library"
 import EditIcon from '@mui/icons-material/Edit'
 import AddIcon from '@mui/icons-material/Add'
 import SettingsIcon from '@mui/icons-material/Settings'
-import LoopIcon from '@mui/icons-material/Loop';
+import LoopIcon from '@mui/icons-material/Loop'
 
 import { ModifyLibrary } from "./ModifyLibrary"
 import { ModifySettings } from "./ModifySettings"

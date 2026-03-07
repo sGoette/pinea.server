@@ -25,7 +25,9 @@ from app.scanner.metadata_functions.get_main_movie_of_extra import get_main_movi
 from app.api.websocket_manager import ws_manager
 from app.models.notification import Notification, NOTIFICATION_TYPE
 
-async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Library):
+async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Library, update_poster: bool = False):
+    force_update_poster = update_poster
+
     extra_type, main_movie_file_name = get_extra_type(absolute_path)
     if extra_type and main_movie_file_name:
         main_movie = await get_main_movie_of_extra(absolute_file_path=absolute_path, main_movie_file_name=main_movie_file_name, extra_movie=movie, library_id=movie.library_id)
@@ -63,6 +65,8 @@ async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Libra
                         if metadata:
                             if metadata.poster_url:
                                 poster_file_name = get_poster_from_url(url=metadata.poster_url)
+                                if poster_file_name:
+                                    force_update_poster = False
                             else: 
                                 poster_file_name = movie.poster_file_name
                                 
@@ -108,7 +112,7 @@ async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Libra
             except Exception:
                 log.exception("Unable to us scraper")
                             
-    if movie.poster_file_name is None and movie.length_in_seconds:
+    if ( movie.poster_file_name is None or force_update_poster ) and movie.length_in_seconds:
         try:
             poster_from_stil = await generate_poster(path=absolute_path, length_in_seconds=movie.length_in_seconds)
             async with aiosqlite.connect(DB_PATH) as db:

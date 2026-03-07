@@ -5,3 +5,4 @@ from typing import Optional
 class ScanJob:
     library_id: Optional[int] = None
     ignore_existing_metadata: bool = False
+    movie_id: Optional[int] = None
