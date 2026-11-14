@@ -24,6 +24,7 @@ from app.scanner.worker import ScannerWorker
 from app.config import FRONTEND_DIR, INDEX_HTML
 
 from app.services.bonjour import build_service_info
+from app.services.updater import updater
 
 import logging
 log = logging.getLogger(__name__)
@@ -48,7 +49,10 @@ async def lifespan(api: FastAPI):
     app.state.service_info = info
 
     await zeroconf.async_register_service(info)
-    
+
+    # Startup succeeded -> confirm a just installed update (see services/updater.py)
+    updater.finalize_pending_update()
+
     yield
 
     await zeroconf.async_unregister_service(info)
@@ -79,6 +83,9 @@ app.include_router(scan_router)
 
 from app.api.websocket import router as websocket_router
 app.include_router(websocket_router)
+
+from app.api.update import router as update_router
+app.include_router(update_router)
 
 if FRONTEND_DIR.exists():
     app.mount("/frontend", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")

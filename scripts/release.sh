@@ -8,6 +8,10 @@ if [ -z "$VERSION" ]; then
   exit 1
 fi
 
+case "$VERSION" in
+  *[!A-Za-z0-9._-]*) echo "❌ Version may only contain A-Z a-z 0-9 . _ -"; exit 1 ;;
+esac
+
 echo "🚀 Building release $VERSION"
 
 BUILD_DIR="build"
@@ -56,8 +60,42 @@ chmod +x "$RELEASE_DIR/update.sh"
 cp scripts/rebase.sh "$RELEASE_DIR/rebase.sh"
 chmod +x "$RELEASE_DIR/rebase.sh"
 
+# Linux install (systemd + self-update), see scripts/linux/install.sh
+mkdir -p "$RELEASE_DIR/scripts/linux"
+cp scripts/linux/install.sh scripts/linux/pinea-run.sh scripts/linux/pinea.service "$RELEASE_DIR/scripts/linux/"
+chmod +x "$RELEASE_DIR/scripts/linux/install.sh" "$RELEASE_DIR/scripts/linux/pinea-run.sh"
+
+# VERSION.json: lets the server know which commit it runs (used by the updater).
+# A build with uncommitted changes gets a "-dirty" commit, so it never counts as up to date.
+COMMIT="$(git rev-parse HEAD)"
+if [ -n "$(git status --porcelain)" ]; then
+  COMMIT="$COMMIT-dirty"
+fi
+python3 - "$RELEASE_DIR/VERSION.json" "$VERSION" "$COMMIT" "$(git log -1 --format=%cI)" "$(git log -1 --format=%s)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" <<'EOF'
+import json, sys
+path, name, commit, commit_date, message, built_at = sys.argv[1:]
+with open(path, "w", encoding="utf-8") as f:
+    json.dump({"name": name, "commit": commit, "commit_date": commit_date, "message": message, "built_at": built_at}, f, indent=2)
+EOF
+
 tar -czf $BUILD_DIR/"$ARCHIVE_NAME" "$RELEASE_DIR"
+
+# version.json: published next to the tarball, read by the updater and install.sh
+if command -v sha256sum >/dev/null 2>&1; then
+  SHA256="$(sha256sum "$BUILD_DIR/$ARCHIVE_NAME" | cut -d' ' -f1)"
+else
+  SHA256="$(shasum -a 256 "$BUILD_DIR/$ARCHIVE_NAME" | cut -d' ' -f1)"
+fi
+python3 - "$RELEASE_DIR/VERSION.json" "$BUILD_DIR/version.json" "$SHA256" <<'EOF'
+import json, sys
+source, target, sha256 = sys.argv[1:]
+with open(source, encoding="utf-8") as f:
+    data = json.load(f)
+data["sha256"] = sha256
+with open(target, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=2)
+EOF
 
 rm -rf "$RELEASE_DIR"
 
-echo "✅ Created $BUILD_DIR/$ARCHIVE_NAME"
+echo "✅ Created $BUILD_DIR/$ARCHIVE_NAME and $BUILD_DIR/version.json"

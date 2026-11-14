@@ -38,7 +38,8 @@ async def add_movie_to_db(library_id: int, absolute_file_path: Path) -> Optional
     height: int = 0
     codec: str = ""
     format_name: str = ""
-    added_date = int(movie_stat.st_birthtime)
+    # st_birthtime exists on FreeBSD/macOS but not on Linux -> fall back to the modification time
+    added_date = int(getattr(movie_stat, "st_birthtime", None) or movie_stat.st_mtime)
 
     try:
         file_metadata = await get_video_file_metadata(absolute_file_path)

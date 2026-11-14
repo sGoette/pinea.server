@@ -1,0 +1,29 @@
+# Template, @ROOT@ and @USER@ are replaced by install.sh
+[Unit]
+Description=pinea.server media server
+Wants=network-online.target
+After=network-online.target remote-fs.target
+# Never give up restarting: self-updates restart the service, and the rollback in
+# pinea-run.sh needs a few failed starts to kick in.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+Environment=PINEA_ROOT=@ROOT@
+Environment=PYTHONUNBUFFERED=1
+ExecStart=@ROOT@/bin/pinea-run.sh
+Restart=always
+RestartSec=3
+TimeoutStopSec=20
+
+# Hardening: the server only needs to write to its own folder. Media is read-only anyway.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=@ROOT@
+
+[Install]
+WantedBy=multi-user.target

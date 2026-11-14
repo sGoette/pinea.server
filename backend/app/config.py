@@ -1,3 +1,4 @@
+import os
 import aiosqlite
 from pathlib import Path
 
@@ -12,6 +13,15 @@ LOG_FILE     = BASE_DIR / "data/pinea.log"
 
 FRONTEND_DIR = REPO_ROOT / "frontend"                  # repo_root/frontend
 INDEX_HTML = FRONTEND_DIR / "index.html"
+
+# Self-update (Linux installs only, see app/services/updater.py and scripts/linux/)
+VERSION_FILE = REPO_ROOT / "VERSION.json"              # written by scripts/release.sh, missing in dev
+RELEASES_DIR = BASE_DIR / "releases"
+CURRENT_LINK = BASE_DIR / "current"
+UPDATE_STATE_DIR = BASE_DIR / "data/update"            # shared with scripts/linux/pinea-run.sh
+UPDATE_BASE_URL = os.environ.get("PINEA_UPDATE_URL", "https://github.com/sGoette/pinea.server/releases/download/main-build")
+UPDATE_TARBALL_NAME = "pineaserver-main.tar.gz"
+UPDATE_VERSION_NAME = "version.json"
 
 async def GET_MEDIA_ROOT_FOLDER() -> str:
     async with aiosqlite.connect(DB_PATH) as db:

@@ -5,6 +5,7 @@ import './Dialog.css'
 
 import CloseIcon from '@mui/icons-material/Close'
 import { TextInput } from "./TextInput"
+import { UpdatePanel } from "./UpdatePanel"
 
 export const ModifySettings = (props: { setShowModifySettingsDialog: Dispatch<SetStateAction<boolean>> }) => {
     const [ settings, setSettings ] = useState<Setting[]>([])
@@ -55,6 +56,7 @@ export const ModifySettings = (props: { setShowModifySettingsDialog: Dispatch<Se
                     <button className="primary" onClick={saveData} disabled={ validData }>Save</button>
                 </div>
                 </div>
+                <UpdatePanel />
             </div>
         </div>
     )

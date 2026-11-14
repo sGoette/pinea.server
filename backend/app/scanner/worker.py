@@ -36,7 +36,7 @@ class ScannerWorker:
                 await scan_libraries(job)
 
                 #Cleanup orphaned movies in database -> Movies where the file is missing
-                await cleanup_orphaned_movies()
+                await cleanup_orphaned_movies(force=job.force_cleanup)
 
                 #Cleanup orphaned collections in database -> Collections with 0 movies
                 await cleanup_orphaned_collections()

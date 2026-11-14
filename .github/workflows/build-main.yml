@@ -1,0 +1,56 @@
+# Builds every commit on main and publishes it to the rolling "main-build" pre-release.
+# Installed servers check <release>/version.json and install pineaserver-main.tar.gz
+# (web UI: Settings -> Server updates, or scripts/linux/install.sh).
+name: Build main
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-main
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - name: Check Python syntax
+        run: python3 -m compileall -q backend/app
+
+      - name: Build release tarball
+        run: |
+          NAME="main-$(git rev-parse --short=7 HEAD)"
+          ./scripts/release.sh "$NAME"
+          cp "build/pineaserver-$NAME.tar.gz" build/pineaserver-main.tar.gz
+          cat build/version.json
+
+      - name: Publish to the main-build release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag -f main-build
+          git push -f origin refs/tags/main-build
+          if ! gh release view main-build >/dev/null 2>&1; then
+            gh release create main-build --prerelease --verify-tag \
+              --title "Latest build of main" \
+              --notes "Rolling build of the latest commit on main, used by the built-in updater."
+          fi
+          # Tarball first, version.json last: version.json must never point to a tarball that isn't uploaded yet.
+          gh release upload main-build build/pineaserver-main.tar.gz --clobber
+          gh release upload main-build build/version.json --clobber

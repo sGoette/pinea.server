@@ -6,3 +6,4 @@ class ScanJob:
     library_id: Optional[int] = None
     ignore_existing_metadata: bool = False
     movie_id: Optional[int] = None
+    force_cleanup: bool = False # bypass the "too many movies missing at once" safety check

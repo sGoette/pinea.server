@@ -1,0 +1,236 @@
+# pinea.server
+
+Self-hosted media server. Scans media folders on a file server, writes movies/series/collections/people
+into SQLite, generates/fetches poster images and streams video files. A small React web UI is
+used for settings, library management and triggering scans. The main client is a **tvOS app**
+(separate repo, not here) that discovers the server via Bonjour (`_pinea._tcp`) and uses the REST API.
+
+## Tech stack
+
+- **Backend**: Python (FastAPI + uvicorn, aiosqlite, pydantic v2, zeroconf, Pillow, requests, Levenshtein).
+  Requires Python ≥ 3.11 (`StrEnum`). Local dev venv uses 3.14 (`.venv/`).
+- **External binaries**: `ffprobe` (video metadata) and `ffmpeg` (poster frame grabs), called via subprocess.
+- **Frontend**: React 19 + MUI 7 + react-router 7, TypeScript, bundled with webpack/babel into `dist/frontend`.
+- **DB**: single SQLite file, WAL mode. No ORM, raw SQL everywhere. No migration framework.
+- Root `package.json` lists fastify/sqlite3 etc.: leftovers from an earlier Node backend, not used.
+
+## Repository layout
+
+```
+backend/
+  requirements.txt          # pinned Python deps (NOTE: Pillow missing, but it is imported)
+  app/
+    main.py                 # FastAPI app, lifespan (init_db, scanner thread, zeroconf), SPA serving
+    config.py               # paths (BASE_DIR, DB_PATH, POSTER_DIR, LOG_FILE), settings getters, constants
+    logging_setup.py        # rotating file log -> data/pinea.log (truncated on every start)
+    db/database.py          # get_db(), init_db(): CREATE TABLE IF NOT EXISTS for all tables
+    api/                    # one router per file (see endpoints below)
+    models/                 # pydantic models (API response shapes + scanner DTOs)
+    scanner/
+      worker.py             # ScannerWorker: own thread + asyncio loop + queue of ScanJob
+      jobs.py               # ScanJob(library_id?, ignore_existing_metadata, movie_id?, force_cleanup)
+      scan.py               # entry: single movie rescan, one library, or all libraries
+      library.py            # os.walk library folder, process each video file
+      movie.py              # insert movie row (ffprobe for duration/size/codec)
+      metadata.py           # __pinea.json configs, dynamic scraper loading, posters, series
+      media.py              # ffprobe/ffmpeg wrappers, poster hash names
+      cleanup.py            # delete orphaned movies / collections / poster files after each scan
+      metadata_functions/   # helpers: collections, people, posters, extras
+    scrapers/imdb/          # example scraper (__pinea.py + __pinea.json) using api.imdbapi.dev
+    services/bonjour.py     # zeroconf ServiceInfo (port 4000, TXT api=/api version=1)
+    services/updater.py     # self-update from GitHub (see Deployment)
+frontend/
+  public/index.html
+  src/                      # App.tsx, MovieOverview, MoviePlayer (hls.js), ModifyLibrary, ModifySettings, Folder picker...
+  src/types/                # TS mirrors of backend models
+scripts/release.sh          # builds the release tarball + VERSION.json/version.json (used by CI)
+scripts/linux/              # install.sh, pinea.service, pinea-run.sh (Linux/systemd)
+scripts/*                   # legacy FreeBSD jail scripts
+.github/workflows/          # build-main.yml: build + publish every push to main
+webpack.config.js           # dev server config (npm run dev:frontend)
+frontend/webpack.config.js  # production build config (npm run build)
+fsstructure.txt             # production directory layout
+```
+
+## Running locally
+
+```sh
+npm run dev            # webpack dev server :3000 (proxies /api -> :4000) + uvicorn --reload :4000
+npm run dev:backend    # backend only: .venv/bin/python -m uvicorn app.main:app --app-dir backend --port 4000
+npm run build          # frontend -> dist/frontend
+npm run typecheck
+./scripts/release.sh v0.1.7   # builds build/pineaserver-v0.1.7.tar.gz + build/version.json (wipes build/ first)
+```
+
+There are no tests and no linter config.
+
+## Paths at runtime (config.py)
+
+`BASE_DIR = Path(__file__).parent×4` resolves to the install root, so the code must sit at
+`<root>/<something>/backend/app/config.py`. In production `<root>` is `/usr/local/pinea.server`
+and the app is loaded through the `current` symlink (`--app-dir <root>/current/backend`), so
+`BASE_DIR = /usr/local/pinea.server`. In dev the root is the parent of the repo folder!
+
+| Constant      | Path                              |
+|---------------|-----------------------------------|
+| DB_PATH       | `<root>/data/db/database.sqlite`  |
+| POSTER_DIR    | `<root>/data/posters/`            |
+| LOG_FILE      | `<root>/data/pinea.log`           |
+| HLS_ROOT      | `<root>/data/tmp/hls` (unused)    |
+| FRONTEND_DIR  | `<repo or release>/frontend`      |
+
+Production layout:
+```
+/usr/local/pinea.server/
+  current -> releases/vX.Y.Z
+  bin/pinea-run.sh                     (Linux, root-owned)
+  releases/<name>/{backend,frontend,scripts/linux,VERSION.json,.venv,...}
+  data/db/database.sqlite (+ -wal, -shm)
+  data/posters/<md5>.jpg
+  data/pinea.log
+  logs/
+  data/update/                         (self-update state)
+  pinea.pid                            (FreeBSD only)
+```
+
+## Database schema (`backend/app/db/database.py`)
+
+All schema is created with `CREATE TABLE IF NOT EXISTS` on startup. **Adding a column to an
+existing table therefore does nothing on existing databases.** You need an explicit
+`ALTER TABLE` migration (check `PRAGMA table_info`, or use `PRAGMA user_version`).
+
+- **settings**(key TEXT UNIQUE, value TEXT, format TEXT): key/value config. Seeded:
+  `MEDIA_ROOT_FOLDER` (absolute path, format `folder`), `SERVER_NAME` (`Pinea Server NNNN`, also the Bonjour name).
+- **libraries**(id PK, name, media_folder TEXT UNIQUE, type `MOVIES|SERIES|VIDEOS`)
+  `media_folder` is **relative to MEDIA_ROOT_FOLDER**.
+- **movies**(id PK, title, file_location TEXT UNIQUE, length_in_seconds REAL, width, height, codec,
+  format, poster_file_name, library_id → libraries CASCADE, metadata_last_updated INT (unix),
+  release_date INT, added_date INT NOT NULL (file birth time, or mtime on Linux), is_extra_of_movie_id → movies,
+  extra_type `TRAILER|BEHIND_THE_SCENES|MAKING_OFF`, is_episode_of_serie_id → series, episode INT,
+  season TEXT, is_extra_of_serie_id → series)
+  `file_location` is **relative to MEDIA_ROOT_FOLDER**. Episodes and extras are rows in `movies` too.
+- **series**(id PK, title, poster_file_name, library_id → libraries CASCADE)
+- **collections**(id PK, title, poster_file_name, library_id → libraries CASCADE)
+- **movies__collections**(movie_id, collection_id) PK both, CASCADE
+- **people**(id PK, name, poster_file_name, role `ACTOR|DIRECTOR`, library_id → libraries CASCADE)
+- **movies__people**(movie_id, person_id) PK both, CASCADE
+
+`poster_file_name` everywhere is a bare file name inside POSTER_DIR (`md5(path+timestamp).jpg`).
+Foreign keys are enforced only on connections that run `PRAGMA foreign_keys=ON`. Most API code
+opens its own `aiosqlite.connect(DB_PATH)` without it.
+
+## HTTP API (all under port 4000)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/health` | `{"status":"ok"}` |
+| GET | `/api/settings` | list settings |
+| POST | `/api/settings` | body `[Setting]`, updates values by key |
+| GET | `/api/libraries` | all libraries |
+| GET | `/api/library/{id}` | one library |
+| PUT | `/api/library` | create (`LibraryCreate`), queues a scan |
+| POST | `/api/library` | update (`Library`) |
+| DELETE | `/api/library/{id}` | delete (cascade), queues a scan (for cleanup) |
+| GET | `/api/movies/{library_id}` | non-extra movies of library |
+| GET | `/api/movies/collection/{collection_id}` | movies in a collection |
+| GET | `/api/movies/person/{person_id}` | movies of a person |
+| GET | `/api/movie/{id}` | one movie |
+| GET | `/api/movie/{id}/stream` | file streaming with HTTP Range support (always `video/mp4`) |
+| GET | `/api/movie/{id}/people` | people of a movie |
+| GET | `/api/movie/{id}/extras` | extras of a movie |
+| GET | `/api/series/{library_id}` | series + `seasons_count` |
+| GET | `/api/serie/{id}/episodes` | episodes ordered by season, episode |
+| GET | `/api/collections/{library_id}` | collections + `movie_count` |
+| GET | `/api/person/{id}` | one person |
+| GET | `/api/poster/{file_name}` | poster image from POSTER_DIR |
+| GET | `/api/filesystem/list?current_directory=` | subfolders inside MEDIA_ROOT_FOLDER (folder picker) |
+| POST | `/api/scan/start?library_id=&ignore_existing_metadata=&movie_id=&force_cleanup=` | queue a scan job |
+| GET | `/api/update/status` | installed/latest version, update state, log, last result |
+| POST | `/api/update/check` | fetch `version.json` of the `main-build` release |
+| POST | `/api/update/install` | start self-update (409 if unsupported, busy or up to date) |
+| WS | `/ws` | server push: `{"type": "LIBRARIES_UPDATED" \| "COLLECTIONS_UPDATED" \| "MOVIES_UPDATED"}` |
+| GET | `/`, `/{path}` | SPA (frontend/index.html + static files) |
+
+The tvOS app depends on these shapes. Treat response models as a public contract.
+
+## Scanning & metadata
+
+1. A `ScanJob` is queued (on library create/delete or `/api/scan/start`). The worker runs jobs serially.
+2. `scan_library` walks `<MEDIA_ROOT_FOLDER>/<library.media_folder>` for `VIDEO_EXTENSIONS`.
+3. New files are inserted (title = file stem title-cased, ffprobe data, `added_date`).
+4. If `metadata_last_updated` is NULL (or `ignore_existing_metadata`), `fetch_movie_metadata` runs:
+   - Extras: file stem ending in `-trailer|-behindthescenes|-makingoff` is linked to the main movie.
+   - Walks up from the file's folder collecting every `__pinea.json` (`FolderCollectionConfig`):
+     `subfoldersAreCollections`, `subfoldersArePeople`, `folderPeople`, `useScraper`, `potential_collections`.
+   - `useScraper`: imports `__pinea.py` **from that media folder** and calls
+     `search(absolute_path=, library=) -> [SearchResult]` and
+     `fetch_metadata(search_result=, potential_collections=) -> Metadata`. (The example in
+     `app/scrapers/imdb` has an older `search(title)` signature.) Scrapers live in the media folders, not in this repo.
+   - Posters: from scraper URL, from folder images (`folder/cover/poster/...`), or a random ffmpeg frame.
+5. After every job: `cleanup_orphaned_movies` (deletes movies whose file is gone, with safety guards, see
+   gotchas), then orphaned collections, then poster files not referenced in the DB.
+
+## Deployment
+
+### Linux (target): `scripts/linux/`
+- `install.sh`: run as root on Debian/Ubuntu. apt deps (python3, python3-venv, ffmpeg), system user
+  `pineaserver`, downloads the latest `main-build` (or `--tarball FILE`), creates `releases/<name>/.venv`,
+  installs `bin/pinea-run.sh` + `/etc/systemd/system/pinea.service`, switches `current`, restarts and
+  waits for `/api/health`. Idempotent: re-run it to update. `--no-start` lets you copy an existing DB
+  and posters into `data/` before the first start. `--skip-apt` skips the system packages.
+- `pinea.service`: template (`@ROOT@`, `@USER@`). `Restart=always`, `StartLimitIntervalSec=0`,
+  `ProtectSystem=full` + `ReadWritePaths=<root>`.
+- `pinea-run.sh`: ExecStart. Lives in `<root>/bin/` (root-owned, outside releases). Handles rollback,
+  then `exec current/.venv/bin/python -m uvicorn ...`. Env: `PINEA_ROOT`, `PINEA_HOST`, `PINEA_PORT`.
+- Everything under `<root>` is owned by `pineaserver` (needed for self-update), except `bin/`.
+
+### Self-update from the web UI
+- CI (`.github/workflows/build-main.yml`) builds every push to `main` with `scripts/release.sh main-<sha7>`
+  and publishes `pineaserver-main.tar.gz` + `version.json` (name, commit, commit_date, message, built_at,
+  sha256) to the rolling pre-release / tag **`main-build`**.
+- Every release contains `VERSION.json` (same fields without sha256). It's missing in dev, where
+  `current` shows as unknown. Local builds with uncommitted changes get commit `<sha>-dirty`.
+- `app/services/updater.py`: check → download → verify sha256 → extract to `releases/<name>` →
+  venv + pip → compileall + import check → write `data/update/pending` → atomic symlink switch →
+  SIGTERM itself → systemd restarts. On successful startup `main.py` lifespan calls
+  `updater.finalize_pending_update()`. If the new release fails to start 3 times, `pinea-run.sh` points
+  `current` back at the previous release and writes `data/update/rolled_back`. Keeps 3 releases.
+- State files in `data/update/`: `pending`, `attempts`, `rolled_back`, `last_result.json`.
+- API: `GET /api/update/status`, `POST /api/update/check`, `POST /api/update/install` (409 + detail on refusal).
+  UI: `frontend/src/UpdatePanel.tsx` in the settings dialog (polls status, reloads when the new commit is up).
+- Only enabled on Linux with the releases/current layout. For local testing on macOS set
+  `PINEA_UPDATER_ENABLED=1` and `PINEA_UPDATE_URL=http://127.0.0.1:<port>` (a folder served with
+  `python3 -m http.server` that contains the tarball + version.json).
+- System packages (apt) are not updated by the UI updater. Re-run `install.sh` for that.
+- Do **not** add new WebSocket notification types for this (or anything else) without checking the tvOS
+  app: it decodes `NOTIFICATION_TYPE` and may fail on unknown values. The UI polls instead.
+
+### FreeBSD jail (legacy, until the migration is done)
+- `scripts/setup.txt`, `scripts/install.sh` (pkg + rc.d), `scripts/pinea` (rc.d via `daemon`),
+  `scripts/update.sh <v>` (fetches GitHub release `vX.Y.Z`), `scripts/rebase.sh` (**wipes DB + posters**).
+- `release.sh` still copies them into every tarball.
+
+### Environment facts
+- Media is mounted **read-only**. The server never writes to media folders.
+- The tvOS app finds the server only via Bonjour and stores nothing on the client, so IP changes don't matter.
+- This repo is **public**. Never commit personal data, hostnames, IPs, network layout, media titles or
+  folder names. Keep such things in local notes and memory only.
+
+## Known pitfalls / gotchas
+
+- `added_date` uses `st_birthtime` where it exists (FreeBSD/macOS), otherwise `st_mtime` (Linux).
+- Orphan cleanup (`scanner/cleanup.py`) skips libraries whose folder is missing or empty (not mounted)
+  and refuses to delete more than 50% of a library (≥ 20 movies) unless the scan is started with
+  `force_cleanup=true`. Don't weaken this: the original behaviour wiped the whole DB on a missing mount.
+- `MEDIA_ROOT_FOLDER` must be the same absolute path in the DB as on the host. All other paths are relative.
+- `GET_MEDIA_ROOT_FOLDER`/`GET_SERVER_NAME` call `exit(1)` when the setting row is missing.
+- `find_folder_collection_config` compares a `Path` with the `str` MEDIA_ROOT_FOLDER, which is never equal,
+  so it keeps walking up to `/`.
+- `COLLECTION_POSTER_CANDIDATE_NAMES` is missing a comma (`'folder' 'cover'` → `'foldercover'`).
+- Two webpack configs: `npm run build` uses `frontend/webpack.config.js` (production, `__WSURL__ = '/ws'`),
+  `npm run dev:frontend` uses the root `webpack.config.js` (`ws://localhost:4000/ws`, proxy to :4000).
+- `order` is a reserved SQL keyword. See BACKLOG.md (character/order feature, stashed).
+- `scripts/release.sh` deletes `build/` on every run.
+- The log file is truncated on every start (`LOG_FILE.write_text("")` in main.py).
+- uvicorn exits with code 143 after a SIGTERM (it re-raises the signal). That's normal.
+- `.DS_Store` files are committed. Ignore them.

@@ -1,0 +1,48 @@
+.updatePanel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-top: rgba(255, 255, 255, 0.2) solid 1px;
+    padding-top: 20px;
+    max-width: 480px;
+}
+
+.updatePanel h3,
+.updatePanel p {
+    margin: 0;
+}
+
+.updateLabel {
+    opacity: 0.6;
+}
+
+.updateCommitMessage {
+    display: block;
+    opacity: 0.6;
+    font-style: italic;
+}
+
+.updateHint {
+    opacity: 0.6;
+}
+
+.updateError {
+    color: #ff6b6b;
+}
+
+.updateLogToggle {
+    cursor: pointer;
+    opacity: 0.6;
+    text-decoration: underline;
+}
+
+.updateLog {
+    max-height: 200px;
+    overflow: auto;
+    font-size: 0.75rem;
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 10px;
+    border-radius: 10px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
