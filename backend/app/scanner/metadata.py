@@ -6,13 +6,14 @@ from typing import Optional
 import logging
 log = logging.getLogger(__name__)
 
-from app.config import DB_PATH
+from app.config import DB_PATH, POSTER_DIR
 from app.models.movie import Movie
 from app.models.metadata import Metadata, SearchResult
 from app.scanner.media import generate_poster
 from app.models.collection import CollectionData
 from app.models.library import Library, LIBRARY_TYPE
 from app.models.serie import Serie
+from app.scanner.text import smart_title
 
 from app.scanner.metadata_functions.folder_collection_config import find_folder_collection_config
 from app.scanner.metadata_functions.add_collection_to_movie import add_collection_to_movie
@@ -40,11 +41,11 @@ async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Libra
 
     for config in configs:
         if config.data.subfoldersAreCollections and config.childPath:
-            collection_data = CollectionData(title=config.childPath.name.title(), poster_folder=config.childPath)
+            collection_data = CollectionData(title=smart_title(config.childPath.name), poster_folder=config.childPath)
             await add_collection_to_movie(collection_data=collection_data, movie=movie)
 
         if config.data.subfoldersArePeople and config.childPath:
-            current_folder_title = config.childPath.name.title()
+            current_folder_title = smart_title(config.childPath.name)
             await set_subfolder_as_person(person_name=current_folder_title, path=config.childPath, library_id=movie.library_id, movie_id=movie.id, poster_candidate_names=[current_folder_title.lower()])
 
         for additional_person in config.data.folderPeople:
@@ -112,7 +113,9 @@ async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Libra
             except Exception:
                 log.exception("Unable to us scraper")
                             
-    if ( movie.poster_file_name is None or force_update_poster ) and movie.length_in_seconds:
+    # Grab a frame only if there is no usable poster: none yet, or the file is gone from the poster folder
+    poster_missing = movie.poster_file_name is None or not (POSTER_DIR / movie.poster_file_name).is_file()
+    if ( poster_missing or force_update_poster ) and movie.length_in_seconds:
         try:
             poster_from_stil = await generate_poster(path=absolute_path, length_in_seconds=movie.length_in_seconds)
             async with aiosqlite.connect(DB_PATH) as db:

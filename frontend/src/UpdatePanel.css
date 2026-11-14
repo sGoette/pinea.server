@@ -1,48 +1,60 @@
 .updatePanel {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    border-top: rgba(255, 255, 255, 0.2) solid 1px;
-    padding-top: 20px;
-    max-width: 480px;
+    gap: 12px;
 }
 
-.updatePanel h3,
-.updatePanel p {
+.updateVersions {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 16px;
     margin: 0;
 }
 
-.updateLabel {
-    opacity: 0.6;
+.updateVersions dt {
+    color: var(--text-faint);
+}
+
+.updateVersions dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .updateCommitMessage {
     display: block;
-    opacity: 0.6;
-    font-style: italic;
+    color: var(--text-muted);
+    font-size: 13px;
 }
 
 .updateHint {
-    opacity: 0.6;
+    color: var(--text-muted);
+}
+
+.updateProgress {
+    color: var(--accent);
 }
 
 .updateError {
-    color: #ff6b6b;
+    color: var(--danger);
 }
 
-.updateLogToggle {
-    cursor: pointer;
-    opacity: 0.6;
-    text-decoration: underline;
+.updateButtons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .updateLog {
-    max-height: 200px;
+    max-height: 220px;
+    margin: 0;
+    padding: 12px;
     overflow: auto;
-    font-size: 0.75rem;
-    background-color: rgba(255, 255, 255, 0.05);
-    padding: 10px;
-    border-radius: 10px;
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
     white-space: pre-wrap;
     word-break: break-all;
 }

@@ -1,31 +1,49 @@
-.folderContainer {
+.folderPicker {
+    max-height: 260px;
+    padding: 6px;
+    overflow: auto;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--bg);
+}
+
+.folder {
     display: flex;
     flex-direction: column;
-    text-wrap: nowrap;
-    flex-grow: 1;
 }
 
 .folderRow {
     display: flex;
-    flex-direction: row;
     align-items: center;
-    gap: 10px;
-    color: white;
-    padding-right: 5px;
-    padding-bottom: 5px;
+    gap: 8px;
+    width: 100%;
+    height: 32px;
+    padding: 0 8px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    text-align: left;
+    white-space: nowrap;
     cursor: pointer;
 }
 
-.folderContainer p {
-    margin: 0;
+.folderRow svg {
+    flex-shrink: 0;
+    font-size: 18px;
+}
+
+.folderRow:hover {
+    background: var(--surface-2);
+    color: var(--text);
 }
 
 .folderRow.selected {
-    color: aquamarine;
+    background: var(--accent-soft);
+    color: var(--accent);
 }
 
-.subFolderContainer {
-    padding: 0px;
-    margin: 0px;
-    padding-left: 25px;
+.folderChildren {
+    padding-left: 18px;
 }

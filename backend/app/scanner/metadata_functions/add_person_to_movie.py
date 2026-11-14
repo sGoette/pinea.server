@@ -10,7 +10,7 @@ async def add_person_to_movie(person_metadata: PersonMetadata, movie: Movie):
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
 
-        async with db.execute("SELECT * FROM people WHERE name = ? AND library_id = ?", (person_metadata.name, movie.library_id)) as select_cursor1: #TODO: compare lowercase with lowercase
+        async with db.execute("SELECT * FROM people WHERE name = ? COLLATE NOCASE AND library_id = ?", (person_metadata.name, movie.library_id)) as select_cursor1:
             person_row = await select_cursor1.fetchone()
             
         if person_row is None:

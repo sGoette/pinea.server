@@ -1,52 +1,52 @@
 import React, { useEffect, useState } from "react"
-import FolderIcon from '@mui/icons-material/Folder'
-import FolderOpenIcon from '@mui/icons-material/FolderOpen'
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined'
+import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined'
+import axios from "axios"
 
 import './Folder.css'
 import type { FolderEntry } from "./types/FolderEntry"
-import axios from "axios"
 
-export const Folder = (props: { name: string, path: string, libraryMediaFolder: string, setLibraryMediaFolder: (arg0: string) => void }) => {
+/** One row of the folder tree in the library dialog. Loads its subfolders when opened. */
+export const Folder = (props: { name: string, path: string, libraryMediaFolder: string, setLibraryMediaFolder: (path: string) => void }) => {
     const [ subFolders, setSubFolders ] = useState<FolderEntry[]>([])
-    
-    const setCurrentFolder = () => {
-        props.setLibraryMediaFolder(props.path)
-        fetchSubFolders()
-    }
+    const [ open, setOpen ] = useState<boolean>(false)
 
     const fetchSubFolders = () => {
-        const params = { current_directory: props.path }
-
-        axios.get('/api/filesystem/list', { params })
+        axios.get('/api/filesystem/list', { params: { current_directory: props.path } })
         .then(response => {
-            if(response.status === 200) {
-                setSubFolders(response.data.entries as FolderEntry[])
-            }
+            setSubFolders(response.data.entries as FolderEntry[])
+            setOpen(true)
         })
+        .catch(() => setSubFolders([]))
     }
 
+    const select = () => {
+        props.setLibraryMediaFolder(props.path)
+        if (!open) fetchSubFolders()
+        else if (props.path === props.libraryMediaFolder) setOpen(false)
+    }
+
+    // Open the tree down to the currently selected folder
     useEffect(() => {
-        if(props.libraryMediaFolder.includes(props.path)) {
-            fetchSubFolders()
-        }
+        const isAncestor = props.path === "" || props.libraryMediaFolder === props.path || props.libraryMediaFolder.startsWith(props.path + "/")
+        if (isAncestor) fetchSubFolders()
     }, [])
+
+    const selected = props.path === props.libraryMediaFolder
+
     return (
-        <div className="folderContainer">
-            <div className={`folderRow${props.path === props.libraryMediaFolder ? ' selected' : ""}`} onClick={setCurrentFolder}>
-                {
-                    subFolders.length > 0
-                    ? <FolderOpenIcon className="folderIcon" />
-                    : <FolderIcon className="folderIcon" />
-                }
-                <p>{props.name}</p>
-            </div>
-            <div className="subFolderContainer">
-                {
-                    subFolders.map(folder => 
-                        <Folder name={folder.name} path={folder.path} libraryMediaFolder={props.libraryMediaFolder} setLibraryMediaFolder={props.setLibraryMediaFolder} key={folder.path} />
-                    )
-                }
-            </div>
+        <div className="folder">
+            <button type="button" className={`folderRow${selected ? " selected" : ""}`} onClick={select}>
+                { open && subFolders.length > 0 ? <FolderOpenOutlinedIcon /> : <FolderOutlinedIcon /> }
+                <span>{props.name}</span>
+            </button>
+            {
+                open && subFolders.length > 0 && (
+                    <div className="folderChildren">
+                        { subFolders.map(folder => <Folder key={folder.path} name={folder.name} path={folder.path} libraryMediaFolder={props.libraryMediaFolder} setLibraryMediaFolder={props.setLibraryMediaFolder} />) }
+                    </div>
+                )
+            }
         </div>
     )
 }

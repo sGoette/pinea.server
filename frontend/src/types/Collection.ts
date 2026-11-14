@@ -3,4 +3,5 @@ export type Collection = {
     title: string
     poster_file_name: string | null
     library_id: number
+    movie_count?: number
 }

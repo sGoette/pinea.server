@@ -1,0 +1,274 @@
+.appShell {
+    min-height: 100vh;
+}
+
+/* Top bar */
+.topBar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    min-height: var(--topbar-height);
+    padding: 10px 16px 10px var(--page-padding);
+    border-bottom: 1px solid var(--border);
+    background: rgba(15, 17, 20, 0.82);
+    backdrop-filter: saturate(140%) blur(14px);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    font-size: 16px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+}
+
+.brandMark {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    background: var(--accent);
+    transform: rotate(45deg);
+}
+
+.libraryTabs {
+    display: flex;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.libraryTabs::-webkit-scrollbar {
+    display: none;
+}
+
+.libraryTab {
+    position: relative;
+    flex-shrink: 0;
+    height: 36px;
+    padding: 0 12px;
+    border: none;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.15s, background-color 0.15s;
+}
+
+.libraryTab:hover {
+    color: var(--text);
+    background: var(--surface-2);
+}
+
+.libraryTab.active {
+    color: var(--text);
+}
+
+.libraryTab.active::after {
+    content: "";
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 2px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+}
+
+.viewControls,
+.topBarActions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.viewControls {
+    gap: 10px;
+}
+
+/* Fixed width: "Scan" -> "Scanning…" must not move the other controls */
+.scanButton {
+    min-width: 118px;
+    justify-content: flex-start;
+}
+
+.topBarDivider {
+    width: 1px;
+    height: 22px;
+    margin: 0 6px;
+    background: var(--border-strong);
+}
+
+.searchBox {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 220px;
+}
+
+.searchBox svg {
+    position: absolute;
+    left: 10px;
+    color: var(--text-faint);
+    font-size: 18px;
+    pointer-events: none;
+}
+
+.searchBox input[type=search] {
+    height: 36px;
+    padding-left: 34px;
+    background: var(--surface-2);
+    border-color: transparent;
+}
+
+.searchBox input[type=search]:focus {
+    background: var(--bg);
+    border-color: var(--accent);
+}
+
+/* Content */
+.content {
+    padding: 20px var(--page-padding) 56px;
+}
+
+.contentHeader {
+    display: flex;
+    align-items: center;
+    min-height: 36px;
+    margin-bottom: 16px;
+}
+
+.contentCount {
+    color: var(--text-faint);
+    font-size: 13px;
+}
+
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.breadcrumbBack {
+    height: 32px;
+    padding: 0 10px 0 4px;
+    margin-left: -6px;
+}
+
+.breadcrumbSeparator {
+    color: var(--text-faint);
+}
+
+.breadcrumb h1 {
+    overflow: hidden;
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.contentHint {
+    padding: 48px 0;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    max-width: 420px;
+    margin: 72px auto 0;
+    text-align: center;
+}
+
+.emptyState h2 {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.emptyState p {
+    margin-bottom: 8px;
+    color: var(--text-muted);
+}
+
+.emptyIcon {
+    margin-bottom: 4px;
+    color: var(--text-faint);
+    font-size: 44px !important;
+}
+
+/* Tablet: library tabs get their own row */
+@media (max-width: 960px) {
+    :root {
+        --page-padding: 18px;
+    }
+
+    .topBar {
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+
+    .viewControls {
+        margin-left: auto;
+    }
+
+    .libraryTabs {
+        order: 3;
+        flex-basis: 100%;
+        margin-left: -12px;
+    }
+
+    .searchBox {
+        width: 180px;
+    }
+}
+
+/* Phone: brand + actions, then library tabs, then view switch + search */
+@media (max-width: 640px) {
+    .topBar {
+        gap: 8px;
+        padding-right: 8px;
+    }
+
+    .topBarActions {
+        margin-left: auto;
+        gap: 2px;
+    }
+
+    .viewControls {
+        order: 4;
+        flex-basis: 100%;
+        margin: 0 0 4px;
+        padding-right: 8px;
+    }
+
+    .searchBox {
+        flex: 1;
+        width: auto;
+    }
+
+    .hideNarrow {
+        display: none;
+    }
+
+    .scanButton {
+        min-width: 0;
+        padding: 0 9px;
+    }
+
+    .topBarDivider {
+        margin: 0 2px;
+    }
+}

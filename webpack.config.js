@@ -3,6 +3,9 @@ import HtmlWebpackPlugin from "html-webpack-plugin";
 import { CleanWebpackPlugin } from "clean-webpack-plugin";
 import webpack from "webpack";
 
+// Backend for the dev server. Default: local backend. Example: PINEA_API=http://192.0.2.10:4000 npm run dev:frontend
+const API = process.env.PINEA_API || "http://localhost:4000";
+
 const exports = {
   entry: "./frontend/src/index.tsx",
   output: {
@@ -48,7 +51,7 @@ const exports = {
       template: "./frontend/public/index.html",
     }),
     new webpack.DefinePlugin({
-      __WSURL__: JSON.stringify('ws://localhost:4000/ws')
+      __WSURL__: JSON.stringify(API.replace(/^http/, "ws") + "/ws")
     })
   ],
   devServer: {
@@ -61,7 +64,8 @@ const exports = {
     proxy: [
       {
         context: ["/api"],
-        target: "http://localhost:4000"
+        target: API,
+        changeOrigin: true
       }
     ]
   },

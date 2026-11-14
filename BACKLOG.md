@@ -30,3 +30,11 @@ is in `git stash` ("WIP: movies__people character/order"). Restore it with `git 
 5. **Sorting.** `/api/movie/{id}/people` should probably `ORDER BY mp.sort_order IS NULL, mp.sort_order, p.name`.
 6. **tvOS app.** The people response gets new fields. Update the app's model to use them.
    Extra fields are harmless for older app versions.
+
+## Series view with seasons and episodes in the web UI
+
+**Status:** Later. The tvOS app already has a season view; rebuild that here.
+
+Today, episodes of a SERIES library show up as a flat list under "All". The backend already has
+`GET /api/series/{library_id}` (with `seasons_count`) and `GET /api/serie/{id}/episodes`
+(ordered by season, episode).

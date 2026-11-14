@@ -1,61 +1,75 @@
-.dialogWrapper {
+.dialogBackdrop {
     position: fixed;
-    top: 0px;
-    left: 0px;
-    right: 0px;
-    bottom: 0px;
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(10px);
+    inset: 0;
+    z-index: 50;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 20;
+    padding: 16px;
+    background: rgba(5, 6, 8, 0.6);
+    backdrop-filter: blur(6px);
+    animation: fadeIn 0.15s var(--ease);
 }
 
-.dialogBox {
+.dialog {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: min(86vh, 900px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: var(--shadow-dialog);
+    animation: dialogIn 0.18s var(--ease);
+}
+
+.dialogHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 16px 8px 24px;
+}
+
+.dialogHeader h2 {
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.dialogBody {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    background-color: black;
-    padding: 40px;
-    padding-top: 44px;
-    border-radius: 20px;
-    border: rgba(255, 255, 255, 0.2) solid 1px;
+    padding: 12px 24px 24px;
+    overflow-y: auto;
 }
 
-.inputList {
+.dialogFooter {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+}
+
+.dialogFooter .spacer {
+    flex: 1;
+}
+
+.dialogSection {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 12px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
 }
 
-.folderSelectWrapper {
-    display: flex;
-    flex-direction: row;
-    gap: 20px;
-    border: rgba(255, 255, 255, 0.2) solid 1px;
-    border-radius: 10px;
-    padding: 10px;
-    overflow: auto;
-    max-height: 300px;
+.dialogSection h3 {
+    font-size: 14px;
+    font-weight: 600;
 }
 
-.closeButtonWrapper {
-    display: flex;
-    justify-content: right;
-    margin-top: -24px;
-    cursor: pointer;
-}
-
-.closeButton {
-    color: white;
-}
-
-.dialogButtonWrapper {
-    display: flex;
-    gap: 2rem;
-}
-
-.dialogButtonWrapper button {
-    flex-grow: 1;
+@keyframes dialogIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
 }

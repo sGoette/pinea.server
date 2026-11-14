@@ -25,6 +25,8 @@ from app.config import FRONTEND_DIR, INDEX_HTML
 
 from app.services.bonjour import build_service_info
 from app.services.updater import updater
+from app.api.websocket_manager import ws_manager
+import asyncio
 
 import logging
 log = logging.getLogger(__name__)
@@ -36,6 +38,7 @@ scanner = ScannerWorker()
 @asynccontextmanager
 async def lifespan(api: FastAPI):
     # Startup
+    ws_manager.bind_loop(asyncio.get_running_loop())
     await init_db()
     log.info("Database initialized ✅")
 

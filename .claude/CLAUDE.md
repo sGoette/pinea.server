@@ -41,7 +41,14 @@ backend/
     services/updater.py     # self-update from GitHub (see Deployment)
 frontend/
   public/index.html
-  src/                      # App.tsx, MovieOverview, MoviePlayer (hls.js), ModifyLibrary, ModifySettings, Folder picker...
+  src/App.tsx               # WebSocket context + ToastProvider, single route -> LibraryBrowser
+  src/LibraryBrowser.tsx    # main page: top bar, grid, URL state, data loading, scan actions
+  src/MediaCard.tsx         # MovieCard / CollectionCard (poster grid; VIDEOS libraries use 16:9 cards)
+  src/PlayerOverlay.tsx     # fullscreen <video> overlay (?play=<id>), closes with ✕ / Esc / back
+  src/LibraryDialog.tsx, SettingsDialog.tsx, UpdatePanel.tsx, Folder.tsx (folder picker), Dialog.tsx, Toast.tsx
+  src/useScanStatus.ts      # polls /api/scan/status while a scan runs
+  src/format.ts             # posterUrl, formatDuration, formatYear, pluralize
+  src/styles.css            # design tokens (CSS variables), buttons, inputs, segmented control
   src/types/                # TS mirrors of backend models
 scripts/release.sh          # builds the release tarball + VERSION.json/version.json (used by CI)
 scripts/linux/              # install.sh, pinea.service, pinea-run.sh (Linux/systemd)
@@ -145,6 +152,7 @@ opens its own `aiosqlite.connect(DB_PATH)` without it.
 | GET | `/api/poster/{file_name}` | poster image from POSTER_DIR |
 | GET | `/api/filesystem/list?current_directory=` | subfolders inside MEDIA_ROOT_FOLDER (folder picker) |
 | POST | `/api/scan/start?library_id=&ignore_existing_metadata=&movie_id=&force_cleanup=` | queue a scan job |
+| GET | `/api/scan/status` | `{running, pending_jobs, library_id, movie_id}` of the scanner worker |
 | GET | `/api/update/status` | installed/latest version, update state, log, last result |
 | POST | `/api/update/check` | fetch `version.json` of the `main-build` release |
 | POST | `/api/update/install` | start self-update (409 if unsupported, busy or up to date) |
@@ -152,6 +160,15 @@ opens its own `aiosqlite.connect(DB_PATH)` without it.
 | GET | `/`, `/{path}` | SPA (frontend/index.html + static files) |
 
 The tvOS app depends on these shapes. Treat response models as a public contract.
+
+## Web UI
+
+- One page (`LibraryBrowser`). State lives in the URL query: `library`, `view=all` (default: collections),
+  `collection`, `play`. Reload keeps the place and the browser's back button works (it also closes the player).
+- Dark theme only. Colors, radii and spacing are CSS variables in `styles.css`. Use them instead of hard-coded values.
+- WebSocket `MOVIES_UPDATED` arrives once per file during scans, so the UI debounces refetches (800 ms).
+- Posters must use absolute URLs (`/api/poster/...`, see `posterUrl()`).
+- Browsers can only play what they support (mp4/h264, ...). mkv/avi etc. show a message in the player.
 
 ## Scanning & metadata
 
@@ -226,7 +243,16 @@ The tvOS app depends on these shapes. Treat response models as a public contract
 - `GET_MEDIA_ROOT_FOLDER`/`GET_SERVER_NAME` call `exit(1)` when the setting row is missing.
 - `find_folder_collection_config` compares a `Path` with the `str` MEDIA_ROOT_FOLDER, which is never equal,
   so it keeps walking up to `/`.
-- `COLLECTION_POSTER_CANDIDATE_NAMES` is missing a comma (`'folder' 'cover'` → `'foldercover'`).
+- Names from files/folders go through `scanner/text.py:smart_title()`, not `str.title()` (which breaks
+  "Don't" → "Don'T"). Collection and people lookups by name use `COLLATE NOCASE` so older entries
+  with different casing still match.
+- `ws_manager.broadcast()` coalesces: each notification type is sent at most once per 1.5 s, always from
+  the main event loop (the scanner runs in its own thread/loop). Callers can broadcast freely.
+- "Refresh metadata" (`/api/scan/start?movie_id=`) keeps an existing poster. A frame is only grabbed when
+  the movie has no poster or the file is missing in `data/posters/`.
+- Streaming (`api/movie.py`, `parse_range`): single byte ranges incl. suffix ranges, end clamped to the
+  file size, 416 for ranges starting past the end, malformed/multi-range headers are ignored (200 + whole
+  file). The tvOS app (AVPlayer) depends on this endpoint, so test playback on tvOS after changes.
 - Two webpack configs: `npm run build` uses `frontend/webpack.config.js` (production, `__WSURL__ = '/ws'`),
   `npm run dev:frontend` uses the root `webpack.config.js` (`ws://localhost:4000/ws`, proxy to :4000).
 - `order` is a reserved SQL keyword. See BACKLOG.md (character/order feature, stashed).

@@ -16,7 +16,7 @@ async def add_collection_to_movie(collection_data: CollectionData, movie: Movie)
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
 
-        async with db.execute("SELECT * FROM collections WHERE title = ? AND library_id = ?", (collection_data.title, movie.library_id)) as select_cursor1: 
+        async with db.execute("SELECT * FROM collections WHERE title = ? COLLATE NOCASE AND library_id = ?", (collection_data.title, movie.library_id)) as select_cursor1: 
             collection_row = await select_cursor1.fetchone()
 
         if collection_row is None: #Collection doesn't exist jet

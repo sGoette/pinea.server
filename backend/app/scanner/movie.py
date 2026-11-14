@@ -9,6 +9,7 @@ log = logging.getLogger(__name__)
 from app.config import DB_PATH, GET_MEDIA_ROOT_FOLDER
 from app.scanner.media import get_video_file_metadata
 from app.models.movie import Movie
+from app.scanner.text import smart_title
 
 from app.api.websocket_manager import ws_manager
 from app.models.notification import Notification, NOTIFICATION_TYPE
@@ -30,7 +31,7 @@ async def process_movie(absolute_file_path: Path, library_id: int) -> Optional[M
 
 async def add_movie_to_db(library_id: int, absolute_file_path: Path) -> Optional[Movie]:
     relative_path = Path(os.path.relpath(absolute_file_path, await GET_MEDIA_ROOT_FOLDER()))
-    movie_title = absolute_file_path.stem.title()
+    movie_title = smart_title(absolute_file_path.stem)
     movie_stat = absolute_file_path.stat()
 
     length_in_seconds: float = 0.0

@@ -8,7 +8,7 @@ from app.scanner.metadata_functions.get_poster_from_folder import get_poster_fro
 async def set_subfolder_as_person(person_name: str, path: Path, library_id: int, movie_id: int, poster_candidate_names: list[str]):
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        async with db.execute("SELECT * FROM people WHERE name = ? AND library_id = ?", (person_name, library_id)) as cursor:
+        async with db.execute("SELECT * FROM people WHERE name = ? COLLATE NOCASE AND library_id = ?", (person_name, library_id)) as cursor:
             person_row = await cursor.fetchone()
 
     if person_row: #Person already exists

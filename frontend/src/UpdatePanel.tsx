@@ -77,31 +77,33 @@ export const UpdatePanel = () => {
     }
 
     if (!status) {
-        return <div className="updatePanel"><h3>Server updates</h3><p className="updateHint">{error ?? "Loading…"}</p></div>
+        return <div className="updatePanel"><p className="updateHint">{error ?? "Loading…"}</p></div>
     }
 
     const busy = BUSY_STATES.includes(status.state) || waitingFor !== null
 
     return (
         <div className="updatePanel">
-            <h3>Server updates</h3>
-            <p><span className="updateLabel">Installed:</span> {formatVersion(status.current)}</p>
+            <dl className="updateVersions">
+                <dt>Installed</dt>
+                <dd>{formatVersion(status.current)}</dd>
+                { status.latest && <>
+                    <dt>Latest</dt>
+                    <dd>
+                        {formatVersion(status.latest)}
+                        { status.latest.message && <span className="updateCommitMessage">{status.latest.message}</span> }
+                    </dd>
+                </> }
+            </dl>
 
             { !status.supported
                 ? <p className="updateHint">{status.unsupported_reason}</p>
                 : <>
-                    { status.latest && (
-                        <p>
-                            <span className="updateLabel">Latest:</span> {formatVersion(status.latest)}
-                            { status.latest.message && <span className="updateCommitMessage">{status.latest.message}</span> }
-                        </p>
-                    )}
-
                     { status.last_checked && !status.update_available && status.state !== 'ERROR' && !busy &&
-                        <p className="updateHint">Up to date.</p> }
+                        <p className="updateHint">You're up to date.</p> }
 
                     { (busy || status.state === 'ERROR') && status.message &&
-                        <p className={status.state === 'ERROR' ? "updateError" : "updateHint"}>{status.message}</p> }
+                        <p className={status.state === 'ERROR' ? "updateError" : "updateProgress"}>{status.message}</p> }
 
                     { status.last_result && !busy &&
                         <p className={status.last_result.success ? "updateHint" : "updateError"}>
@@ -110,18 +112,19 @@ export const UpdatePanel = () => {
 
                     { error && <p className="updateError">{error}</p> }
 
-                    <div className="dialogButtonWrapper">
-                        <button onClick={checkForUpdate} disabled={busy}>
+                    <div className="updateButtons">
+                        <button className="btn" onClick={checkForUpdate} disabled={busy}>
                             { status.state === 'CHECKING' ? "Checking…" : "Check for updates" }
                         </button>
                         { status.update_available &&
-                            <button className="primary" onClick={installUpdate} disabled={busy}>Install update</button> }
+                            <button className="btn btn-primary" onClick={installUpdate} disabled={busy}>
+                                { busy ? "Updating…" : "Install update" }
+                            </button> }
+                        { status.log.length > 0 &&
+                            <button className="btn btn-ghost" onClick={() => setShowLog(!showLog)}>{ showLog ? "Hide details" : "Show details" }</button> }
                     </div>
 
-                    { status.log.length > 0 && <>
-                        <p className="updateLogToggle" onClick={() => setShowLog(!showLog)}>{ showLog ? "Hide details" : "Show details" }</p>
-                        { showLog && <pre className="updateLog">{status.log.join("\n")}</pre> }
-                    </> }
+                    { showLog && status.log.length > 0 && <pre className="updateLog">{status.log.join("\n")}</pre> }
                 </>
             }
         </div>

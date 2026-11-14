@@ -45,6 +45,6 @@ async def GET_SERVER_NAME() -> str:
             
             exit(1)
 
-COLLECTION_POSTER_CANDIDATE_NAMES = ['folder' 'cover', 'poster', 'thumb', 'thumbnail', 'collection']
+COLLECTION_POSTER_CANDIDATE_NAMES = ['folder', 'cover', 'poster', 'thumb', 'thumbnail', 'collection']
 
 VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv'}
