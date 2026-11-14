@@ -12,7 +12,8 @@ used for settings, library management and triggering scans. The main client is a
 - **External binaries**: `ffprobe` (video metadata) and `ffmpeg` (poster frame grabs), called via subprocess.
 - **Frontend**: React 19 + MUI 7 + react-router 7, TypeScript, bundled with webpack/babel into `dist/frontend`.
 - **DB**: single SQLite file, WAL mode. No ORM, raw SQL everywhere. No migration framework.
-- Root `package.json` lists fastify/sqlite3 etc.: leftovers from an earlier Node backend, not used.
+- `package.json` only contains the web UI and its build tools. `@mui/material` + `@emotion/*` are needed
+  as peer dependencies of `@mui/icons-material`.
 
 ## Repository layout
 
@@ -52,17 +53,16 @@ frontend/
   src/types/                # TS mirrors of backend models
 scripts/release.sh          # builds the release tarball + VERSION.json/version.json (used by CI)
 scripts/linux/              # install.sh, pinea.service, pinea-run.sh (Linux/systemd)
-scripts/*                   # legacy FreeBSD jail scripts
+scripts/filesystem          # sketch of the intended media folder layout (incl. series/seasons)
 .github/workflows/          # build-main.yml: build + publish every push to main
-webpack.config.js           # dev server config (npm run dev:frontend)
-frontend/webpack.config.js  # production build config (npm run build)
-fsstructure.txt             # production directory layout
+webpack.config.js           # one config: --mode production (build) / development (dev server)
 ```
 
 ## Running locally
 
 ```sh
 npm run dev            # webpack dev server :3000 (proxies /api -> :4000) + uvicorn --reload :4000
+PINEA_API=http://<server>:4000 npm run dev:frontend   # new UI against a running server's data
 npm run dev:backend    # backend only: .venv/bin/python -m uvicorn app.main:app --app-dir backend --port 4000
 npm run build          # frontend -> dist/frontend
 npm run typecheck
@@ -89,7 +89,7 @@ and the app is loaded through the `current` symlink (`--app-dir <root>/current/b
 Production layout:
 ```
 /usr/local/pinea.server/
-  current -> releases/vX.Y.Z
+  current -> releases/<name>
   bin/pinea-run.sh                     (Linux, root-owned)
   releases/<name>/{backend,frontend,scripts/linux,VERSION.json,.venv,...}
   data/db/database.sqlite (+ -wal, -shm)
@@ -97,7 +97,6 @@ Production layout:
   data/pinea.log
   logs/
   data/update/                         (self-update state)
-  pinea.pid                            (FreeBSD only)
 ```
 
 ## Database schema (`backend/app/db/database.py`)
@@ -222,11 +221,6 @@ The tvOS app depends on these shapes. Treat response models as a public contract
 - Do **not** add new WebSocket notification types for this (or anything else) without checking the tvOS
   app: it decodes `NOTIFICATION_TYPE` and may fail on unknown values. The UI polls instead.
 
-### FreeBSD jail (legacy, until the migration is done)
-- `scripts/setup.txt`, `scripts/install.sh` (pkg + rc.d), `scripts/pinea` (rc.d via `daemon`),
-  `scripts/update.sh <v>` (fetches GitHub release `vX.Y.Z`), `scripts/rebase.sh` (**wipes DB + posters**).
-- `release.sh` still copies them into every tarball.
-
 ### Environment facts
 - Media is mounted **read-only**. The server never writes to media folders.
 - The tvOS app finds the server only via Bonjour and stores nothing on the client, so IP changes don't matter.
@@ -253,8 +247,9 @@ The tvOS app depends on these shapes. Treat response models as a public contract
 - Streaming (`api/movie.py`, `parse_range`): single byte ranges incl. suffix ranges, end clamped to the
   file size, 416 for ranges starting past the end, malformed/multi-range headers are ignored (200 + whole
   file). The tvOS app (AVPlayer) depends on this endpoint, so test playback on tvOS after changes.
-- Two webpack configs: `npm run build` uses `frontend/webpack.config.js` (production, `__WSURL__ = '/ws'`),
-  `npm run dev:frontend` uses the root `webpack.config.js` (`ws://localhost:4000/ws`, proxy to :4000).
+- `__WSURL__` (webpack DefinePlugin): `/ws` in production, `ws://<PINEA_API host>/ws` in dev.
+- `Levenshtein` in requirements.txt isn't imported by the app, but scrapers (`__pinea.py` in the media
+  folders) run in the server's Python environment and may use it. Don't remove it.
 - `order` is a reserved SQL keyword. See BACKLOG.md (character/order feature, stashed).
 - `scripts/release.sh` deletes `build/` on every run.
 - The log file is truncated on every start (`LOG_FILE.write_text("")` in main.py).

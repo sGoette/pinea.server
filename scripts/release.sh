@@ -4,7 +4,7 @@ set -e
 VERSION="$1"
 
 if [ -z "$VERSION" ]; then
-  echo "Usage: ./scripts/release.sh v0.1.0"
+  echo "Usage: ./scripts/release.sh <name>   (CI uses main-<short sha>)"
   exit 1
 fi
 
@@ -54,18 +54,6 @@ if [ ! -f "$RELEASE_DIR/frontend/index.html" ]; then
   echo "   Adjust your frontend build output path or update the rsync source."
   exit 1
 fi
-
-cp scripts/install.sh "$RELEASE_DIR/install.sh"
-chmod +x "$RELEASE_DIR/install.sh"
-
-cp scripts/pinea "$RELEASE_DIR/pinea"
-chmod +x "$RELEASE_DIR/pinea"
-
-cp scripts/update.sh "$RELEASE_DIR/update.sh"
-chmod +x "$RELEASE_DIR/update.sh"
-
-cp scripts/rebase.sh "$RELEASE_DIR/rebase.sh"
-chmod +x "$RELEASE_DIR/rebase.sh"
 
 # Linux install (systemd + self-update), see scripts/linux/install.sh
 mkdir -p "$RELEASE_DIR/scripts/linux"

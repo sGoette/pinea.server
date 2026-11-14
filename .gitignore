@@ -1,8 +1,15 @@
-/.DS_Store
-/dist
+# Dependencies and build output
 /node_modules
-/data
+/dist
 /build
+
+# Local Python environment and caches
 /.venv
-*/__pycache__
+__pycache__/
 *.pyc
+
+# Local data of the dev backend (database, posters, log)
+/data
+
+# macOS
+.DS_Store
