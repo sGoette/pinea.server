@@ -14,6 +14,13 @@ esac
 
 echo "🚀 Building release $VERSION"
 
+# Must run before anything is created in the repo (the release folder would count as a change).
+# A build with uncommitted changes gets a "-dirty" commit, so it never counts as up to date.
+COMMIT="$(git rev-parse HEAD)"
+if [ -n "$(git status --porcelain)" ]; then
+  COMMIT="$COMMIT-dirty"
+fi
+
 BUILD_DIR="build"
 RELEASE_DIR="$VERSION"
 ARCHIVE_NAME="pineaserver-$RELEASE_DIR.tar.gz"
@@ -66,11 +73,6 @@ cp scripts/linux/install.sh scripts/linux/pinea-run.sh scripts/linux/pinea.servi
 chmod +x "$RELEASE_DIR/scripts/linux/install.sh" "$RELEASE_DIR/scripts/linux/pinea-run.sh"
 
 # VERSION.json: lets the server know which commit it runs (used by the updater).
-# A build with uncommitted changes gets a "-dirty" commit, so it never counts as up to date.
-COMMIT="$(git rev-parse HEAD)"
-if [ -n "$(git status --porcelain)" ]; then
-  COMMIT="$COMMIT-dirty"
-fi
 python3 - "$RELEASE_DIR/VERSION.json" "$VERSION" "$COMMIT" "$(git log -1 --format=%cI)" "$(git log -1 --format=%s)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" <<'EOF'
 import json, sys
 path, name, commit, commit_date, message, built_at = sys.argv[1:]
