@@ -8,7 +8,7 @@ import type { Setting } from "./types/Setting"
 const SETTING_INFO: Record<string, { label: string, hint: string }> = {
     SERVER_NAME: {
         label: "Server name",
-        hint: "Shown in the tvOS app. Takes effect after the server restarts.",
+        hint: "Shown in the tvOS app. Changes apply immediately. The web address stays the same (the machine's host name).",
     },
     MEDIA_ROOT_FOLDER: {
         label: "Media root folder",
@@ -35,8 +35,8 @@ export const SettingsDialog = (props: { onClose: () => void, scanAll: () => void
         setSaving(true)
         axios.post('/api/settings', settings)
         .then(() => props.onClose())
-        .catch(() => {
-            setError("Could not save the settings.")
+        .catch(e => {
+            setError(e.response?.data?.detail ?? "Could not save the settings.")
             setSaving(false)
         })
     }

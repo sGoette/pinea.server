@@ -23,7 +23,8 @@ from app.db.database import init_db
 from app.scanner.worker import ScannerWorker
 from app.config import FRONTEND_DIR, INDEX_HTML
 
-from app.services.bonjour import build_service_info
+from app.services.bonjour import build_service_info, get_advertise_ip
+from app.config import GET_SERVER_NAME
 from app.services.updater import updater
 from app.api.websocket_manager import ws_manager
 import asyncio
@@ -46,12 +47,16 @@ async def lifespan(api: FastAPI):
     app.state.scanner = scanner
     log.info("Scanner worker started ✅")
 
-    zeroconf = AsyncZeroconf()
-    info = await build_service_info()
+    # Bonjour only on the main LAN interface. Other interfaces (e.g. an internal NFS network or
+    # self-assigned 169.254.x addresses) would otherwise end up in the answers the tvOS app gets.
+    host_ip = await get_advertise_ip()
+    info = build_service_info(await GET_SERVER_NAME(), host_ip)
+    zeroconf = AsyncZeroconf(interfaces=[host_ip])
     app.state.zeroconf = zeroconf
     app.state.service_info = info
 
     await zeroconf.async_register_service(info)
+    log.info(f"Bonjour: '{info.name}' on {info.server} -> {host_ip}:{info.port} ✅")
 
     # Startup succeeded -> confirm a just installed update (see services/updater.py)
     updater.finalize_pending_update()

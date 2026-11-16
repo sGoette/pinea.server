@@ -10,6 +10,8 @@
 #   --no-start       install everything but don't (re)start the service, e.g. to copy an
 #                    existing database and posters into data/ before the first start
 #   --skip-apt       don't install/upgrade system packages
+#   --no-port80      don't forward port 80 to 4000 (by default http://<host>/ works without :4000)
+#   --no-avahi       don't announce the machine's host name (<hostname>.local) via avahi
 #
 # Running it again is safe. It updates the system packages, the systemd unit and the runner
 # script, installs the latest build if it isn't the running one, and restarts the service.
@@ -25,6 +27,8 @@ KEEP_RELEASES=3
 TARBALL=""
 START=1
 APT=1
+PORT80=1
+AVAHI=1
 
 info() { echo "✅  $*"; }
 warn() { echo "⚠️  $*" >&2; }
@@ -35,7 +39,9 @@ while [ $# -gt 0 ]; do
         --tarball)  [ $# -ge 2 ] || die "--tarball needs a file"; TARBALL="$2"; shift 2 ;;
         --no-start) START=0; shift ;;
         --skip-apt) APT=0; shift ;;
-        -h|--help)  sed -n '2,18p' "$0"; exit 0 ;;
+        --no-port80) PORT80=0; shift ;;
+        --no-avahi) AVAHI=0; shift ;;
+        -h|--help)  sed -n '2,20p' "$0"; exit 0 ;;
         *)          die "Unknown option: $1" ;;
     esac
 done
@@ -51,6 +57,12 @@ if [ "$APT" -eq 1 ]; then
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         python3 python3-venv ffmpeg curl ca-certificates tar
+    if [ "$PORT80" -eq 1 ]; then
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nftables
+    fi
+    if [ "$AVAHI" -eq 1 ]; then
+        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends avahi-daemon
+    fi
 fi
 python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' \
     || die "Python >= 3.11 required, found $(python3 --version 2>&1)"
@@ -120,6 +132,46 @@ rm -f "$ROOT/data/update/pending" "$ROOT/data/update/attempts"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$ROOT"
 chown -R root:root "$ROOT/bin"
 
+# The main LAN interface = the one with the default route (not an internal storage network)
+LAN_IF="$(ip route show default 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "dev") { print $(i + 1); exit } }')"
+
+# --- Port 80 -> 4000 (the server itself stays on 4000, which the tvOS app gets via Bonjour) ---
+if [ "$PORT80" -eq 1 ]; then
+    if command -v nft >/dev/null 2>&1; then
+        info "Forwarding port 80 to 4000 (nftables)"
+        mkdir -p /etc/nftables.d
+        cat > /etc/nftables.d/pinea.nft <<'NFT'
+# Managed by pinea.server install.sh: http://<host>/ -> port 4000
+table ip pinea_http {
+    chain prerouting {
+        type nat hook prerouting priority dstnat; policy accept;
+        tcp dport 80 redirect to :4000
+    }
+}
+NFT
+        [ -f /etc/nftables.conf ] || printf '#!/usr/sbin/nft -f\nflush ruleset\n' > /etc/nftables.conf
+        grep -q '/etc/nftables.d/' /etc/nftables.conf || printf '\ninclude "/etc/nftables.d/*.nft"\n' >> /etc/nftables.conf
+        systemctl enable nftables >/dev/null 2>&1
+        systemctl restart nftables || warn "nftables failed to load, check: nft -c -f /etc/nftables.conf"
+    else
+        warn "nft not found, skipping port 80 forwarding (run without --skip-apt)"
+    fi
+fi
+
+# --- <hostname>.local via avahi: only on the LAN interface and IPv4 (the server listens on IPv4 only) ---
+if [ "$AVAHI" -eq 1 ]; then
+    if [ -f /etc/avahi/avahi-daemon.conf ] && [ -n "$LAN_IF" ]; then
+        info "Announcing $(hostname).local on $LAN_IF (avahi)"
+        sed -i -e "s/^#*allow-interfaces=.*/allow-interfaces=$LAN_IF/" \
+               -e "s/^#*use-ipv6=.*/use-ipv6=no/" \
+               -e "s/^#*publish-aaaa-on-ipv4=.*/publish-aaaa-on-ipv4=no/" /etc/avahi/avahi-daemon.conf
+        systemctl enable avahi-daemon >/dev/null 2>&1
+        systemctl restart avahi-daemon || warn "avahi-daemon failed to start"
+    else
+        warn "avahi not installed or no default route, skipping <hostname>.local"
+    fi
+fi
+
 # --- Remove old releases ---
 ls -1dt "$ROOT"/releases/*/ 2>/dev/null | tail -n +$((KEEP_RELEASES + 1)) | while read -r old; do
     old="${old%/}"
@@ -158,3 +210,6 @@ until curl -fsS "http://127.0.0.1:4000/api/health" >/dev/null 2>&1; do
 done
 
 info "pinea.server $NAME is running on port 4000"
+if [ "$PORT80" -eq 1 ] && [ "$AVAHI" -eq 1 ]; then
+    info "Web UI: http://$(hostname).local"
+fi

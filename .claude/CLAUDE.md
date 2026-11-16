@@ -38,7 +38,7 @@ backend/
       cleanup.py            # delete orphaned movies / collections / poster files after each scan
       metadata_functions/   # helpers: collections, people, posters, extras
     scrapers/imdb/          # example scraper (__pinea.py + __pinea.json) using api.imdbapi.dev
-    services/bonjour.py     # zeroconf ServiceInfo (port 4000, TXT api=/api version=1)
+    services/bonjour.py     # Bonjour/zeroconf: advertised IP, valid mDNS host name, ServiceInfo (port 4000)
     services/updater.py     # self-update from GitHub (see Deployment)
 frontend/
   public/index.html
@@ -194,6 +194,9 @@ The tvOS app depends on these shapes. Treat response models as a public contract
   installs `bin/pinea-run.sh` + `/etc/systemd/system/pinea.service`, switches `current`, restarts and
   waits for `/api/health`. Idempotent: re-run it to update. `--no-start` lets you copy an existing DB
   and posters into `data/` before the first start. `--skip-apt` skips the system packages.
+  Also sets up (opt-out): **port 80 → 4000** via nftables (`/etc/nftables.d/pinea.nft`, included from
+  `/etc/nftables.conf`; `--no-port80`) and **`<hostname>.local`** via avahi-daemon, restricted to the
+  default-route interface and IPv4 (`--no-avahi`).
 - `pinea.service`: template (`@ROOT@`, `@USER@`). `Restart=always`, `StartLimitIntervalSec=0`,
   `ProtectSystem=full` + `ReadWritePaths=<root>`.
 - `pinea-run.sh`: ExecStart. Lives in `<root>/bin/` (root-owned, outside releases). Handles rollback,
@@ -221,6 +224,14 @@ The tvOS app depends on these shapes. Treat response models as a public contract
 - Do **not** add new WebSocket notification types for this (or anything else) without checking the tvOS
   app: it decodes `NOTIFICATION_TYPE` and may fail on unknown values. The UI polls instead.
 
+### Two names, don't mix them up
+- **Machine host name** (the Debian hostname) → `<hostname>.local` via avahi. Used by the browser
+  (`http://<hostname>.local`, port 80 forwarded) and SSH. Never changes with the server name.
+- **Server name** (setting `SERVER_NAME`) → the Bonjour service name shown in the tvOS app, plus a derived
+  mDNS host name for the service record (`mdns_hostname()`, e.g. `the-pinea-server.local`). Saving a new
+  name re-announces the service live (`rename_service()`); a name another service already uses → 409,
+  nothing saved. Names are limited to 63 bytes.
+
 ### Environment facts
 - Media is mounted **read-only**. The server never writes to media folders.
 - The tvOS app finds the server only via Bonjour and stores nothing on the client, so IP changes don't matter.
@@ -247,6 +258,11 @@ The tvOS app depends on these shapes. Treat response models as a public contract
 - Streaming (`api/movie.py`, `parse_range`): single byte ranges incl. suffix ranges, end clamped to the
   file size, 416 for ranges starting past the end, malformed/multi-range headers are ignored (200 + whole
   file). The tvOS app (AVPlayer) depends on this endpoint, so test playback on tvOS after changes.
+- Bonjour (`services/bonjour.py`): the tvOS app resolves the service and connects to the advertised
+  address. Rules: advertise the default-route interface's IPv4 (never 127.x or 169.254.x, wait up to
+  60 s for the network at startup), run zeroconf only on that interface (`AsyncZeroconf(interfaces=[ip])`,
+  the VM also has an internal NFS network card), and use a valid host name (letters, digits, hyphens:
+  `mdns_hostname()`), never underscores. Override the IP with `PINEA_ADVERTISE_IP` if ever needed.
 - `__WSURL__` (webpack DefinePlugin): `/ws` in production, `ws://<PINEA_API host>/ws` in dev.
 - `Levenshtein` in requirements.txt isn't imported by the app, but scrapers (`__pinea.py` in the media
   folders) run in the server's Python environment and may use it. Don't remove it.
