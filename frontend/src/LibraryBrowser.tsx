@@ -23,11 +23,19 @@ import { MovieDetail } from "./MovieDetail"
 import { PersonDetail } from "./PersonDetail"
 import { useToast } from "./Toast"
 import { useScanStatus } from "./useScanStatus"
-import { pluralize } from "./format"
+import { pluralize, posterUrl } from "./format"
+import { JustifiedGrid } from "./JustifiedGrid"
+import { gridLayoutFor } from "./gridLayout"
 import './LibraryBrowser.css'
 import logoUrl from '../../design/logo.svg'
 
 type View = "collections" | "all"
+
+// Stable helpers for JustifiedGrid (no new functions on every render)
+const movieKey = (movie: Movie) => movie.id
+const movieImage = (movie: Movie) => posterUrl(movie.poster_file_name)
+const collectionKey = (collection: Collection) => collection.id
+const collectionImage = (collection: Collection) => posterUrl(collection.poster_file_name)
 type OpenDialog = { type: "settings" } | { type: "library", libraryId: number | null } | { type: "match", movie: Movie } | null
 
 // During scans the server sends MOVIES_UPDATED for every file. Refetch at most this often.
@@ -230,6 +238,8 @@ export const LibraryBrowser = () => {
 
     // --- Render ---
     const landscape = library?.type === LibraryType.VIDEOS
+    // Grid or justified rows, per library type (gridLayout.ts). ?layout=grid|justified overrides it.
+    const layout = gridLayoutFor(library?.type, params.get("layout"))
 
     const renderContent = () => {
         if (libraries === null) return null
@@ -265,6 +275,25 @@ export const LibraryBrowser = () => {
                     <button className="btn btn-primary" onClick={scanLibrary} disabled={scanStatus.running}><RefreshRoundedIcon /> Scan library</button>
                 </div>
             )
+        }
+
+        if (layout === "justified") {
+            const defaultRatio = landscape ? 16 / 9 : 0.6748
+            return showCollections
+                ? <JustifiedGrid
+                    items={visibleCollections}
+                    getKey={collectionKey}
+                    getImage={collectionImage}
+                    defaultRatio={defaultRatio}
+                    renderItem={(collection, onImageRatio) => <CollectionCard collection={collection} onOpen={openCollection} onImageRatio={onImageRatio} />}
+                  />
+                : <JustifiedGrid
+                    items={visibleMovies}
+                    getKey={movieKey}
+                    getImage={movieImage}
+                    defaultRatio={defaultRatio}
+                    renderItem={(movie, onImageRatio) => <MovieCard movie={movie} onOpen={openMovie} onPlay={playMovie} onImageRatio={onImageRatio} />}
+                  />
         }
 
         return (

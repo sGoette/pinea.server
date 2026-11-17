@@ -118,7 +118,7 @@ export const MovieDetail = (props: {
                 extras.length > 0 &&
                 <section className="detailSection">
                     <h2>Extras</h2>
-                    <div className="mediaGrid landscape">
+                    <div className="shelf artShelf landscape">
                         {
                             extras.map(extra => (
                                 <MovieCard
@@ -138,7 +138,7 @@ export const MovieDetail = (props: {
                 collections.length > 0 &&
                 <section className="detailSection">
                     <h2>Collections</h2>
-                    <div className="mediaGrid">
+                    <div className="shelf artShelf">
                         { collections.map(collection => <CollectionCard key={collection.id} collection={collection} onOpen={props.onOpenCollection} />) }
                     </div>
                 </section>

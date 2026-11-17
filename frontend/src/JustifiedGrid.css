@@ -1,0 +1,30 @@
+/* Justified rows (see JustifiedGrid.tsx): items are positioned absolutely, cards fill their box */
+.justifiedGrid {
+    position: relative;
+    width: 100%;
+}
+
+.justifiedItem {
+    position: absolute;
+    transition: left 0.2s ease-out, top 0.2s ease-out, width 0.2s ease-out, height 0.2s ease-out;
+}
+
+.justifiedItem:hover,
+.justifiedItem:focus-within {
+    z-index: 2;     /* the hover label may overlap the next row */
+}
+
+.justifiedItem .card {
+    height: 100%;
+}
+
+.justifiedItem .cardMedia {
+    height: 100%;
+    aspect-ratio: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .justifiedItem {
+        transition: none;
+    }
+}

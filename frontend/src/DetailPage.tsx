@@ -15,7 +15,9 @@ export const DetailPage = (props: { onBack: () => void, tintImage?: string | nul
     )
 }
 
-/** tvOS ItemHeaderView: big artwork on the left, text column aligned to its bottom edge. */
+/** tvOS ItemHeaderView: big artwork on the left, text column aligned to its bottom edge.
+ *  The artwork keeps its own aspect ratio (portrait or landscape): fixed height, natural width.
+ *  `landscape` only sets the shape of the placeholder when there is no image. */
 export const DetailHeader = (props: {
     image: string | null
     landscape?: boolean
@@ -28,7 +30,7 @@ export const DetailHeader = (props: {
     const meta = props.meta.filter(Boolean).join(" · ")
     return (
         <header className={`detailHeader${props.landscape ? " landscape" : ""}`}>
-            <div className="detailArt">
+            <div className={`detailArt${props.image ? "" : " empty"}`}>
                 { props.image ? <img src={props.image} alt="" /> : <div className="artPlaceholder">{props.placeholderIcon}</div> }
             </div>
             <div className="detailInfo">

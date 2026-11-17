@@ -154,6 +154,54 @@
     background: var(--accent-hover);
 }
 
+/* Single-row shelves (collections, extras on the detail page): fixed height, every card in its
+   artwork's own aspect ratio. Padding: room for the hover lift above and the hover label below. */
+.artShelf {
+    --shelf-height: 200px;
+    --card-aspect: 0.6748 / 1;          /* only for placeholders without an image */
+    gap: 22px;
+    padding-top: 8px;
+    padding-bottom: 52px;
+    margin-bottom: -40px;
+}
+
+.artShelf.landscape {
+    --shelf-height: 160px;
+    --card-aspect: 16 / 9;
+}
+
+.artShelf .card {
+    flex-shrink: 0;
+}
+
+.artShelf .cardMedia {
+    height: var(--shelf-height);
+    aspect-ratio: auto;
+}
+
+.artShelf .cardMedia img {
+    width: auto;
+    min-width: 40px;                    /* a box before the image has loaded (lazy loading) */
+    max-width: 480px;                   /* very wide artwork gets cropped */
+    height: 100%;
+}
+
+.artShelf .artPlaceholder {
+    width: auto;
+    height: 100%;
+    aspect-ratio: var(--card-aspect);
+}
+
+@media (max-width: 640px) {
+    .artShelf {
+        --shelf-height: 160px;
+    }
+
+    .artShelf.landscape {
+        --shelf-height: 120px;
+    }
+}
+
 /* Cast: circle at rest, rounded square on hover (like tvOS focus). Name + character always visible. */
 .personCard {
     display: flex;

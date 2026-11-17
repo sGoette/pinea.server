@@ -45,31 +45,39 @@
 }
 
 .detailArt {
+    --art-height: 400px;
     flex-shrink: 0;
-    width: 220px;
-    aspect-ratio: 0.6748 / 1;
+    height: var(--art-height);
+    max-width: min(100%, 720px);    /* very wide artwork gets cropped at the sides */
     overflow: hidden;
     border-radius: var(--radius);
     background: var(--placeholder);
     box-shadow: var(--shadow-card);
 }
 
-.detailHeader.landscape .detailArt {
-    width: 420px;
-    aspect-ratio: 16 / 9;
-}
-
+/* Full artwork in its own aspect ratio: fixed height, natural width */
 .detailArt img {
     display: block;
-    width: 100%;
     height: 100%;
+    width: auto;
+    max-width: 100%;
     object-fit: cover;
+}
+
+/* No image: placeholder in the library's card shape */
+.detailArt.empty {
+    aspect-ratio: 0.6748 / 1;
+}
+
+.detailHeader.landscape .detailArt.empty {
+    aspect-ratio: 16 / 9;
 }
 
 .detailInfo {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    flex: 1;
     min-width: 0;
     padding-bottom: 4px;
 }
@@ -178,7 +186,19 @@
     overflow-wrap: anywhere;
 }
 
-/* Phone: artwork above the text */
+/* Narrow windows: artwork above the text (a landscape poster next to the text would squeeze it) */
+@media (max-width: 900px) {
+    .detailHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+    }
+
+    .detailArt {
+        --art-height: 320px;
+    }
+}
+
 @media (max-width: 640px) {
     .detailPage {
         gap: 40px;
@@ -188,18 +208,8 @@
         margin-bottom: -28px;
     }
 
-    .detailHeader {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 20px;
-    }
-
     .detailArt {
-        width: 160px;
-    }
-
-    .detailHeader.landscape .detailArt {
-        width: 100%;
+        --art-height: 240px;
     }
 
     .detailInfo h1 {

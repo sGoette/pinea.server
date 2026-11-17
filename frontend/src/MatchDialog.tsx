@@ -82,7 +82,7 @@ export const MatchDialog = (props: { movie: Movie, onClose: () => void, onMatche
                                 <li key={result.id}>
                                     <button className={`matchResult${applying === result.id ? " applying" : ""}`} onClick={() => apply(result)} disabled={applying !== null}>
                                         <div className="matchPoster">
-                                            { result.poster_url ? <img src={result.poster_url} alt="" loading="lazy" /> : <MovieOutlinedIcon /> }
+                                            { result.poster_url ? <img src={result.poster_url} alt="" loading="lazy" /> : <span className="artPlaceholder"><MovieOutlinedIcon /></span> }
                                         </div>
                                         <div className="matchText">
                                             <p className="matchTitle">{result.name}</p>

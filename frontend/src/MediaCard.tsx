@@ -17,6 +17,7 @@ const Card = (props: {
     placeholderIcon: ReactNode
     onOpen: () => void
     onPlay?: () => void
+    onImageRatio?: ((ratio: number) => void) | undefined   // the image's width / height once loaded (justified grid)
 }) => {
     const meta = props.meta.filter(Boolean).join(" · ")
     return (
@@ -31,7 +32,13 @@ const Card = (props: {
             <div className="cardMedia">
                 {
                     props.image
-                    ? <img src={props.image} alt="" loading="lazy" decoding="async" />
+                    ? <img
+                        src={props.image}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        onLoad={props.onImageRatio && (event => props.onImageRatio!(event.currentTarget.naturalWidth / event.currentTarget.naturalHeight))}
+                      />
                     : <div className="artPlaceholder">{props.placeholderIcon}</div>
                 }
                 {
@@ -55,7 +62,7 @@ const Card = (props: {
     )
 }
 
-export const MovieCard = (props: { movie: Movie, onOpen: (movie: Movie) => void, onPlay: (movie: Movie) => void, meta?: (string | null)[] }) => {
+export const MovieCard = (props: { movie: Movie, onOpen: (movie: Movie) => void, onPlay: (movie: Movie) => void, meta?: (string | null)[], onImageRatio?: ((ratio: number) => void) | undefined }) => {
     const { movie } = props
     return (
         <Card
@@ -65,11 +72,12 @@ export const MovieCard = (props: { movie: Movie, onOpen: (movie: Movie) => void,
             placeholderIcon={<MovieOutlinedIcon />}
             onOpen={() => props.onOpen(movie)}
             onPlay={() => props.onPlay(movie)}
+            onImageRatio={props.onImageRatio}
         />
     )
 }
 
-export const CollectionCard = (props: { collection: Collection, onOpen: (collection: Collection) => void }) => {
+export const CollectionCard = (props: { collection: Collection, onOpen: (collection: Collection) => void, onImageRatio?: ((ratio: number) => void) | undefined }) => {
     const { collection } = props
     return (
         <Card
@@ -78,6 +86,7 @@ export const CollectionCard = (props: { collection: Collection, onOpen: (collect
             image={posterUrl(collection.poster_file_name)}
             placeholderIcon={<FolderOutlinedIcon />}
             onOpen={() => props.onOpen(collection)}
+            onImageRatio={props.onImageRatio}
         />
     )
 }

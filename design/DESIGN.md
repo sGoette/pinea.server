@@ -164,11 +164,19 @@ never hard-code them in components.
   posters and stills: big images, little chrome.
 - **Background:** only a subtle gradient. It must never take the focus off the artwork. Detail pages
   get a faint tint from their poster (like tvOS), nothing louder.
+- **Artwork keeps its own aspect ratio** (posters can be portrait or landscape) wherever the layout
+  allows it: detail headers (fixed height 400 px, natural width), single-row shelves such as
+  collections and extras on a detail page (fixed height, natural width), and "Find match" results
+  (whole poster inside a fixed slot).
+- **Library grids per library type** (`frontend/src/gridLayout.ts`): `justified` = rows of equal height that
+  fill the width, every poster in its own ratio (trial: MOVIES); `grid` = fixed columns, cropped to the
+  library's card ratio (SERIES, VIDEOS). Compare on any library with `?layout=grid` / `?layout=justified`.
 - **No file names in the UI chrome.** The file location is debug information: it only appears in the
   technical details of a detail page, never as a title or subtitle. Detail header subtitle:
   year · duration · resolution.
 - The tvOS app is still in development. When it and this file disagree, ask which one is right.
 
 ## 7. Open questions
+- [ ] Justified rows (trial on MOVIES): keep, and for which library types? If yes: store poster sizes on the server, so rows don't adjust while posters load.
 - [ ] tvOS `Person` decodes `order`, the server sends `sort_order` → rename it in the tvOS model.
       (Nothing breaks meanwhile, because the field is optional and the list is already sorted.)

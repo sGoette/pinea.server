@@ -53,23 +53,32 @@
     cursor: default;
 }
 
+/* Full artwork in its own aspect ratio (portrait or landscape), inside a fixed slot so the texts stay aligned */
 .matchPoster {
     display: flex;
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: 56px;
-    aspect-ratio: 2 / 3;
-    overflow: hidden;
-    border-radius: var(--radius-sm);
-    background: var(--surface-3);
-    color: var(--text-faint);
+    width: 120px;
+    height: 90px;
 }
 
 .matchPoster img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-art);
+}
+
+.matchPoster .artPlaceholder {
+    width: 60px;
+    height: 90px;
+    border-radius: var(--radius-sm);
+}
+
+.matchPoster .artPlaceholder svg {
+    font-size: 28px;
 }
 
 .matchText {

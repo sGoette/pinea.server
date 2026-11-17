@@ -49,6 +49,7 @@ frontend/
   src/PlayerOverlay.tsx     # fullscreen <video> overlay (?play=<id>), closes with ✕ / Esc / back
   src/MovieDetail.tsx       # movie detail page (?movie=<id>): header, cast & crew, extras, collections, details
   src/PersonDetail.tsx      # person page (?person=<id>): photo, name, their titles
+  src/JustifiedGrid.tsx     # justified rows (each poster in its own ratio); gridLayout.ts picks grid/justified per library type
   src/DetailPage.tsx        # shared frame (back, poster tint) + header of detail pages
   src/MatchDialog.tsx       # "Find match": all scraper hits for a movie, pick one to apply
   src/LibraryDialog.tsx, SettingsDialog.tsx, UpdatePanel.tsx, Folder.tsx (folder picker), Dialog.tsx, Toast.tsx
