@@ -135,14 +135,14 @@ chown -R root:root "$ROOT/bin"
 # The main LAN interface = the one with the default route (not an internal storage network)
 LAN_IF="$(ip route show default 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "dev") { print $(i + 1); exit } }')"
 
-# --- Port 80 -> 4000 (the server itself stays on 4000, which the tvOS app gets via Bonjour) ---
+# --- Port 80 -> 4000, IPv4 and IPv6 (the server itself stays on 4000, which the tvOS app gets via Bonjour) ---
 if [ "$PORT80" -eq 1 ]; then
     if command -v nft >/dev/null 2>&1; then
         info "Forwarding port 80 to 4000 (nftables)"
         mkdir -p /etc/nftables.d
         cat > /etc/nftables.d/pinea.nft <<'NFT'
 # Managed by pinea.server install.sh: http://<host>/ -> port 4000
-table ip pinea_http {
+table inet pinea_http {
     chain prerouting {
         type nat hook prerouting priority dstnat; policy accept;
         tcp dport 80 redirect to :4000
@@ -158,13 +158,14 @@ NFT
     fi
 fi
 
-# --- <hostname>.local via avahi: only on the LAN interface and IPv4 (the server listens on IPv4 only) ---
+# --- <hostname>.local via avahi: only on the LAN interface, with IPv4 and IPv6 addresses.
+#     IPv6 must be published: avahi can't answer "no AAAA record", so clients would wait ~5 s per lookup. ---
 if [ "$AVAHI" -eq 1 ]; then
     if [ -f /etc/avahi/avahi-daemon.conf ] && [ -n "$LAN_IF" ]; then
         info "Announcing $(hostname).local on $LAN_IF (avahi)"
         sed -i -e "s/^#*allow-interfaces=.*/allow-interfaces=$LAN_IF/" \
-               -e "s/^#*use-ipv6=.*/use-ipv6=no/" \
-               -e "s/^#*publish-aaaa-on-ipv4=.*/publish-aaaa-on-ipv4=no/" /etc/avahi/avahi-daemon.conf
+               -e "s/^#*use-ipv6=.*/use-ipv6=yes/" \
+               -e "s/^#*publish-aaaa-on-ipv4=.*/publish-aaaa-on-ipv4=yes/" /etc/avahi/avahi-daemon.conf
         systemctl enable avahi-daemon >/dev/null 2>&1
         systemctl restart avahi-daemon || warn "avahi-daemon failed to start"
     else

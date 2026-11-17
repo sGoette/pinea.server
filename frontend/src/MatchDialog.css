@@ -1,0 +1,120 @@
+.matchFile {
+    color: var(--text-muted);
+    font-size: 12px;
+    overflow-wrap: anywhere;
+}
+
+.matchSearch {
+    display: flex;
+    gap: 8px;
+}
+
+.matchSearch input {
+    flex: 1;
+    min-width: 0;
+}
+
+.matchResults {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    transition: opacity 0.15s;
+}
+
+.matchResults.stale {
+    opacity: 0.5;
+}
+
+.matchResult {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 8px;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+}
+
+.matchResult:hover:not(:disabled) {
+    border-color: var(--border-strong);
+    background: var(--surface-3);
+}
+
+.matchResult:disabled {
+    cursor: default;
+}
+
+.matchPoster {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    aspect-ratio: 2 / 3;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+    background: var(--surface-3);
+    color: var(--text-faint);
+}
+
+.matchPoster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.matchText {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.matchTitle {
+    font-weight: 500;
+}
+
+.matchMeta {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.matchOverview {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--text-faint);
+    font-size: 12px;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.matchUse {
+    flex-shrink: 0;
+    padding: 0 8px;
+    color: var(--accent);
+    font-weight: 500;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.matchResult:hover .matchUse,
+.matchResult:focus-visible .matchUse,
+.matchResult.applying .matchUse {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .matchUse {
+        opacity: 1;
+    }
+}

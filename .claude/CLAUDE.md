@@ -11,7 +11,7 @@ used for settings, library management and triggering scans. The main client is a
   Requires Python ≥ 3.11 (`StrEnum`). Local dev venv uses 3.14 (`.venv/`).
 - **External binaries**: `ffprobe` (video metadata) and `ffmpeg` (poster frame grabs), called via subprocess.
 - **Frontend**: React 19 + MUI 7 + react-router 7, TypeScript, bundled with webpack/babel into `dist/frontend`.
-- **DB**: single SQLite file, WAL mode. No ORM, raw SQL everywhere. No migration framework.
+- **DB**: single SQLite file, WAL mode. No ORM, raw SQL everywhere. Schema changes: `migrate()` in `db/database.py` (`PRAGMA user_version`).
 - `package.json` only contains the web UI and its build tools. `@mui/material` + `@emotion/*` are needed
   as peer dependencies of `@mui/icons-material`.
 
@@ -37,7 +37,8 @@ backend/
       media.py              # ffprobe/ffmpeg wrappers, poster hash names
       cleanup.py            # delete orphaned movies / collections / poster files after each scan
       metadata_functions/   # helpers: collections, people, posters, extras
-    scrapers/imdb/          # example scraper (__pinea.py + __pinea.json) using api.imdbapi.dev
+    scanner/scraper.py      # load the closest __pinea.py, call search() (also used by the match API)
+    scrapers/tmdb/          # TMDB scraper (__pinea.py + __pinea.json), copied into media folders by the user
     services/bonjour.py     # Bonjour/zeroconf: advertised IP, valid mDNS host name, ServiceInfo (port 4000)
     services/updater.py     # self-update from GitHub (see Deployment)
 frontend/
@@ -46,6 +47,10 @@ frontend/
   src/LibraryBrowser.tsx    # main page: top bar, grid, URL state, data loading, scan actions
   src/MediaCard.tsx         # MovieCard / CollectionCard (poster grid; VIDEOS libraries use 16:9 cards)
   src/PlayerOverlay.tsx     # fullscreen <video> overlay (?play=<id>), closes with ✕ / Esc / back
+  src/MovieDetail.tsx       # movie detail page (?movie=<id>): header, cast & crew, extras, collections, details
+  src/PersonDetail.tsx      # person page (?person=<id>): photo, name, their titles
+  src/DetailPage.tsx        # shared frame (back, poster tint) + header of detail pages
+  src/MatchDialog.tsx       # "Find match": all scraper hits for a movie, pick one to apply
   src/LibraryDialog.tsx, SettingsDialog.tsx, UpdatePanel.tsx, Folder.tsx (folder picker), Dialog.tsx, Toast.tsx
   src/useScanStatus.ts      # polls /api/scan/status while a scan runs
   src/format.ts             # posterUrl, formatDuration, formatYear, pluralize
@@ -64,6 +69,9 @@ webpack.config.js           # one config: --mode production (build) / developmen
 npm run dev            # webpack dev server :3000 (proxies /api -> :4000) + uvicorn --reload :4000
 PINEA_API=http://<server>:4000 npm run dev:frontend   # new UI against a running server's data
 npm run dev:backend    # backend only: .venv/bin/python -m uvicorn app.main:app --app-dir backend --port 4000
+./scripts/dev-sandbox.sh   # local test env in .sandbox/ (gitignored): fake videos, own DB, TMDB scraper copies
+                           #   --reset (empty DB), --db FILE (test on a copy of a DB), TMDB_API_KEY=... to set the key
+npm run dev:sandbox    # like npm run dev, but with PINEA_DATA_ROOT=.sandbox (Bonjour name "Pinea Sandbox")
 npm run build          # frontend -> dist/frontend
 npm run typecheck
 ./scripts/release.sh v0.1.7   # builds build/pineaserver-v0.1.7.tar.gz + build/version.json (wipes build/ first)
@@ -86,6 +94,8 @@ and the app is loaded through the `current` symlink (`--app-dir <root>/current/b
 | HLS_ROOT      | `<root>/data/tmp/hls` (unused)    |
 | FRONTEND_DIR  | `<repo or release>/frontend`      |
 
+`PINEA_DATA_ROOT` overrides `<root>` (used by the sandbox).
+
 Production layout:
 ```
 /usr/local/pinea.server/
@@ -102,8 +112,9 @@ Production layout:
 ## Database schema (`backend/app/db/database.py`)
 
 All schema is created with `CREATE TABLE IF NOT EXISTS` on startup. **Adding a column to an
-existing table therefore does nothing on existing databases.** You need an explicit
-`ALTER TABLE` migration (check `PRAGMA table_info`, or use `PRAGMA user_version`).
+existing table therefore does nothing on existing databases.** Add the column to the CREATE statement
+*and* a step in `migrate()` (bump `SCHEMA_VERSION`, use `_add_column_if_missing`, steps must be idempotent).
+Current schema version: 1.
 
 - **settings**(key TEXT UNIQUE, value TEXT, format TEXT): key/value config. Seeded:
   `MEDIA_ROOT_FOLDER` (absolute path, format `folder`), `SERVER_NAME` (`Pinea Server NNNN`, also the Bonjour name).
@@ -119,7 +130,9 @@ existing table therefore does nothing on existing databases.** You need an expli
 - **collections**(id PK, title, poster_file_name, library_id → libraries CASCADE)
 - **movies__collections**(movie_id, collection_id) PK both, CASCADE
 - **people**(id PK, name, poster_file_name, role `ACTOR|DIRECTOR`, library_id → libraries CASCADE)
-- **movies__people**(movie_id, person_id) PK both, CASCADE
+- **movies__people**(movie_id, person_id, character TEXT, sort_order INTEGER) PK (movie_id, person_id), CASCADE.
+  `character` = role name ("James Bond"), `sort_order` = billing order (0 first, NULL = folder people / directors).
+  `order` is a reserved SQL keyword, hence `sort_order`.
 
 `poster_file_name` everywhere is a bare file name inside POSTER_DIR (`md5(path+timestamp).jpg`).
 Foreign keys are enforced only on connections that run `PRAGMA foreign_keys=ON`. Most API code
@@ -142,15 +155,18 @@ opens its own `aiosqlite.connect(DB_PATH)` without it.
 | GET | `/api/movies/person/{person_id}` | movies of a person |
 | GET | `/api/movie/{id}` | one movie |
 | GET | `/api/movie/{id}/stream` | file streaming with HTTP Range support (always `video/mp4`) |
-| GET | `/api/movie/{id}/people` | people of a movie |
+| GET | `/api/movie/{id}/people` | people of a movie + `character`, `sort_order`; sorted by sort_order (NULLs last), then name |
+| GET | `/api/movie/{id}/search?query=` | all hits of the closest scraper (`SearchResult`: id, name, original_name, release_date, poster_url, overview). 409 = no scraper, 502 = scraper error |
+| POST | `/api/movie/{id}/match` | body `SearchResult`: queue a job that applies this hit (not stored) |
 | GET | `/api/movie/{id}/extras` | extras of a movie |
+| GET | `/api/movie/{id}/collections` | collections a movie belongs to |
 | GET | `/api/series/{library_id}` | series + `seasons_count` |
 | GET | `/api/serie/{id}/episodes` | episodes ordered by season, episode |
 | GET | `/api/collections/{library_id}` | collections + `movie_count` |
 | GET | `/api/person/{id}` | one person |
 | GET | `/api/poster/{file_name}` | poster image from POSTER_DIR |
 | GET | `/api/filesystem/list?current_directory=` | subfolders inside MEDIA_ROOT_FOLDER (folder picker) |
-| POST | `/api/scan/start?library_id=&ignore_existing_metadata=&movie_id=&force_cleanup=` | queue a scan job |
+| POST | `/api/scan/start?library_id=&ignore_existing_metadata=&movie_id=&force_cleanup=&reset_metadata=` | queue a scan job. `reset_metadata` (needs `library_id`): rebuild, see Scanning |
 | GET | `/api/scan/status` | `{running, pending_jobs, library_id, movie_id}` of the scanner worker |
 | GET | `/api/update/status` | installed/latest version, update state, log, last result |
 | POST | `/api/update/check` | fetch `version.json` of the `main-build` release |
@@ -162,9 +178,12 @@ The tvOS app depends on these shapes. Treat response models as a public contract
 
 ## Web UI
 
+- **Design rules: [`design/DESIGN.md`](../design/DESIGN.md). Read it before any UI work.** The tvOS app is the design master;
+  update DESIGN.md when a design decision is made. Logo: `design/logo.svg`.
 - One page (`LibraryBrowser`). State lives in the URL query: `library`, `view=all` (default: collections),
-  `collection`, `play`. Reload keeps the place and the browser's back button works (it also closes the player).
-- Dark theme only. Colors, radii and spacing are CSS variables in `styles.css`. Use them instead of hard-coded values.
+  `collection`, `movie` (detail page), `person` (person page), `play`. Cards open the detail page; the grid stays
+  mounted (hidden) behind detail pages so its scroll position survives. Reload keeps the place and the browser's back button works (it also closes the player).
+- Dark theme only. Colors, radii and spacing are CSS variables in `styles.css` (the web copy of the tvOS assets, see DESIGN.md). Use them instead of hard-coded values.
 - WebSocket `MOVIES_UPDATED` arrives once per file during scans, so the UI debounces refetches (800 ms).
 - Posters must use absolute URLs (`/api/poster/...`, see `posterUrl()`).
 - Browsers can only play what they support (mp4/h264, ...). mkv/avi etc. show a message in the player.
@@ -178,13 +197,24 @@ The tvOS app depends on these shapes. Treat response models as a public contract
    - Extras: file stem ending in `-trailer|-behindthescenes|-makingoff` is linked to the main movie.
    - Walks up from the file's folder collecting every `__pinea.json` (`FolderCollectionConfig`):
      `subfoldersAreCollections`, `subfoldersArePeople`, `folderPeople`, `useScraper`, `potential_collections`.
-   - `useScraper`: imports `__pinea.py` **from that media folder** and calls
-     `search(absolute_path=, library=) -> [SearchResult]` and
-     `fetch_metadata(search_result=, potential_collections=) -> Metadata`. (The example in
-     `app/scrapers/imdb` has an older `search(title)` signature.) Scrapers live in the media folders, not in this repo.
+   - `useScraper`: only the **closest** config with `useScraper` counts (`scanner/scraper.py`). Imports
+     `__pinea.py` **from that media folder** and calls
+     `search(absolute_path=, library=, query=None) -> [SearchResult]` (best first; `query` only for manual
+     searches, scrapers without that parameter still work) and
+     `fetch_metadata(search_result=, potential_collections=) -> Metadata`. A manual match (`ScanJob.search_result`)
+     skips `search()`. Scrapers live in the media folders, not in this repo; `app/scrapers/tmdb` is the one we ship.
+     They may import `app.models.*`. Extras are never scraped.
+   - When the scraper succeeds (or there is none), the movie's `movies__people` / `movies__collections` links are
+     deleted and rebuilt from folder configs + metadata. When the scraper fails, the old links stay.
+   - TMDB scraper: API key in `TMDB_API_KEY` at the top of `__pinea.py`. Result ids: `movie/<id>`,
+     `tv/<show>/<season>/<episode>`. Parses title/year/SxxEyy/`{tmdb-…}`/`tt…` from file names.
    - Posters: from scraper URL, from folder images (`folder/cover/poster/...`), or a random ffmpeg frame.
-5. After every job: `cleanup_orphaned_movies` (deletes movies whose file is gone, with safety guards, see
-   gotchas), then orphaned collections, then poster files not referenced in the DB.
+5. **Rebuild** (`reset_metadata`, "Rebuild metadata" in the library dialog, `scanner/reset.py`): before the scan, all
+   metadata of the library is forgotten (titles back to the file name, posters, dates, extra/episode links, people,
+   collections, series). Movie rows and file data stay. Skipped (no reset, no scan) when the library folder is
+   missing or empty.
+6. After every job: `cleanup_orphaned_movies` (deletes movies whose file is gone, with safety guards, see
+   gotchas), then orphaned collections, then people without movies, then poster files not referenced in the DB.
 
 ## Deployment
 
@@ -195,12 +225,13 @@ The tvOS app depends on these shapes. Treat response models as a public contract
   waits for `/api/health`. Idempotent: re-run it to update. `--no-start` lets you copy an existing DB
   and posters into `data/` before the first start. `--skip-apt` skips the system packages.
   Also sets up (opt-out): **port 80 → 4000** via nftables (`/etc/nftables.d/pinea.nft`, included from
-  `/etc/nftables.conf`; `--no-port80`) and **`<hostname>.local`** via avahi-daemon, restricted to the
-  default-route interface and IPv4 (`--no-avahi`).
+  `/etc/nftables.conf`, `table inet` = IPv4 + IPv6; `--no-port80`) and **`<hostname>.local`** via
+  avahi-daemon, restricted to the default-route interface, IPv4 + IPv6 (`--no-avahi`).
 - `pinea.service`: template (`@ROOT@`, `@USER@`). `Restart=always`, `StartLimitIntervalSec=0`,
   `ProtectSystem=full` + `ReadWritePaths=<root>`.
 - `pinea-run.sh`: ExecStart. Lives in `<root>/bin/` (root-owned, outside releases). Handles rollback,
-  then `exec current/.venv/bin/python -m uvicorn ...`. Env: `PINEA_ROOT`, `PINEA_HOST`, `PINEA_PORT`.
+  then `exec current/.venv/bin/python -m uvicorn ...`. Env: `PINEA_ROOT`, `PINEA_HOST` (default empty =
+  IPv4 + IPv6), `PINEA_PORT`. Only `install.sh` updates it, not the UI updater.
 - Everything under `<root>` is owned by `pineaserver` (needed for self-update), except `bin/`.
 
 ### Self-update from the web UI
@@ -263,10 +294,17 @@ The tvOS app depends on these shapes. Treat response models as a public contract
   60 s for the network at startup), run zeroconf only on that interface (`AsyncZeroconf(interfaces=[ip])`,
   the VM also has an internal NFS network card), and use a valid host name (letters, digits, hyphens:
   `mdns_hostname()`), never underscores. Override the IP with `PINEA_ADVERTISE_IP` if ever needed.
+  The service announces IPv4 only and answers AAAA queries with an NSEC "no such record". That needs
+  **zeroconf ≥ 0.150.4** (older versions put the NSEC on the service name instead of the host name, and
+  Apple clients then wait ~5 s per lookup). Check: `getaddrinfo('<host>.local')` must return instantly.
+- avahi can't send NSEC, so it must publish the IPv6 address (`use-ipv6=yes`); otherwise `<hostname>.local`
+  lookups take ~5 s. That's why the server listens on IPv6 too. Over IPv6 the VM has a public address:
+  the router's IPv6 firewall must block incoming connections (the UI has no login).
 - `__WSURL__` (webpack DefinePlugin): `/ws` in production, `ws://<PINEA_API host>/ws` in dev.
 - `Levenshtein` in requirements.txt isn't imported by the app, but scrapers (`__pinea.py` in the media
   folders) run in the server's Python environment and may use it. Don't remove it.
-- `order` is a reserved SQL keyword. See BACKLOG.md (character/order feature, stashed).
+- `order` is a reserved SQL keyword.
+- `release_date` is unix seconds and negative before 1970. Don't treat values < 10000 as years unless > 0.
 - `scripts/release.sh` deletes `build/` on every run.
 - The log file is truncated on every start (`LOG_FILE.write_text("")` in main.py).
 - uvicorn exits with code 143 after a SIGTERM (it re-raises the signal). That's normal.

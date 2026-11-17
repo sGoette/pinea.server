@@ -1,6 +1,5 @@
 import aiosqlite
 from pathlib import Path
-import importlib.util
 from typing import Optional
 
 import logging
@@ -14,6 +13,7 @@ from app.models.collection import CollectionData
 from app.models.library import Library, LIBRARY_TYPE
 from app.models.serie import Serie
 from app.scanner.text import smart_title
+from app.scanner.scraper import closest_scraper_config, load_scraper, run_search
 
 from app.scanner.metadata_functions.folder_collection_config import find_folder_collection_config
 from app.scanner.metadata_functions.add_collection_to_movie import add_collection_to_movie
@@ -26,7 +26,8 @@ from app.scanner.metadata_functions.get_main_movie_of_extra import get_main_movi
 from app.api.websocket_manager import ws_manager
 from app.models.notification import Notification, NOTIFICATION_TYPE
 
-async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Library, update_poster: bool = False):
+async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Library, update_poster: bool = False, search_result: Optional[SearchResult] = None):
+    """search_result: a scraper hit chosen by the user (manual match). Without it the scraper's best hit is used."""
     force_update_poster = update_poster
 
     extra_type, main_movie_file_name = get_extra_type(absolute_path)
@@ -39,6 +40,32 @@ async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Libra
             
     configs = await find_folder_collection_config(absolute_path)
 
+    # 1. Scraper (network). Only the closest scraper is used, and not for extras: they would get the main movie's metadata.
+    metadata: Optional[Metadata] = None
+    scraper_config = None if extra_type else closest_scraper_config(configs)
+    if scraper_config:
+        try:
+            scraper = load_scraper(scraper_config.currentPath)
+            chosen = search_result
+            if chosen is None:
+                search_results = run_search(scraper, absolute_path=absolute_path, library=library)
+                chosen = search_results[0] if search_results else None
+            if chosen is not None:
+                metadata = scraper.fetch_metadata(search_result=chosen, potential_collections=scraper_config.data.potential_collections)
+            else:
+                log.info(f"[Scanner] Scraper found nothing for {absolute_path}")
+        except Exception:
+            log.exception(f"[Scanner] Scraper failed for {absolute_path}")
+
+    # 2. Forget the old people and collections, they are added again below. Not when the scraper
+    #    failed (e.g. no network): then the old scraper data is better than none.
+    if scraper_config is None or metadata is not None:
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute("DELETE FROM movies__people WHERE movie_id = ?", (movie.id,))
+            await db.execute("DELETE FROM movies__collections WHERE movie_id = ?", (movie.id,))
+            await db.commit()
+
+    # 3. Folder configs
     for config in configs:
         if config.data.subfoldersAreCollections and config.childPath:
             collection_data = CollectionData(title=smart_title(config.childPath.name), poster_folder=config.childPath)
@@ -51,68 +78,15 @@ async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Libra
         for additional_person in config.data.folderPeople:
             await set_subfolder_as_person(person_name=additional_person, path=config.currentPath, library_id=movie.library_id, movie_id=movie.id, poster_candidate_names=[additional_person.lower()])
 
-        if config.data.useScraper:
-            try:
-                scraper_spec = importlib.util.spec_from_file_location("scraper", config.currentPath / "__pinea.py")
-                if scraper_spec and scraper_spec.loader:
-                    scraper = importlib.util.module_from_spec(spec=scraper_spec)
-                    scraper_spec.loader.exec_module(scraper)
+    # 4. Scraper metadata
+    if metadata:
+        try:
+            await apply_metadata(movie=movie, metadata=metadata, library=library)
+            if metadata.poster_url and movie.poster_file_name:
+                force_update_poster = False
+        except Exception:
+            log.exception(f"[Scanner] Could not save the metadata of {absolute_path}")
 
-                    search_results: list[SearchResult] = scraper.search(absolute_path=absolute_path, library=library)
-
-                    if len(search_results) > 0:
-                        metadata: Optional[Metadata] = scraper.fetch_metadata(search_result=search_results[0], potential_collections=config.data.potential_collections)
-
-                        if metadata:
-                            if metadata.poster_url:
-                                poster_file_name = get_poster_from_url(url=metadata.poster_url)
-                                if poster_file_name:
-                                    force_update_poster = False
-                            else: 
-                                poster_file_name = movie.poster_file_name
-                                
-                            async with aiosqlite.connect(DB_PATH) as db:
-                                await db.execute("UPDATE movies SET title = ?, poster_file_name = ?, metadata_last_updated = unixepoch(), release_date = ? WHERE id = ?", (metadata.movie_title, poster_file_name, metadata.release_date, movie.id))
-                                await db.commit()
-                                
-                                movie.title = metadata.movie_title or movie.title
-                                movie.poster_file_name = poster_file_name
-
-                            for person_metadata in metadata.people:
-                                await add_person_to_movie(person_metadata=person_metadata, movie=movie)
-
-                            for collection in metadata.collections:
-                                await add_collection_to_movie(collection_data=collection, movie=movie)
-
-                            if library.type == LIBRARY_TYPE.SERIES and metadata.serie is not None:
-                                async with aiosqlite.connect(DB_PATH) as db:
-                                    db.row_factory = aiosqlite.Row
-                                    async with db.execute("SELECT * FROM series WHERE title = ? AND library_id = ?", (metadata.serie.title, library.id)) as cursor:
-                                        serie_row = await cursor.fetchone()
-
-                                        if serie_row:
-                                            serie = Serie(**serie_row)
-                                            serie_id = serie.id
-
-                                        else:
-                                            if metadata.serie.poster_url:
-                                                serie_poster_file_name = get_poster_from_url(url=metadata.serie.poster_url)
-
-                                            else:
-                                                serie_poster_file_name = movie.poster_file_name
-
-                                            serie_cursor = await db.execute("INSERT INTO series (title, poster_file_name, library_id) VALUES (?, ?, ?)", (metadata.serie.title, serie_poster_file_name, library.id))
-                                            await db.commit()
-
-                                            serie_id = serie_cursor.lastrowid
-
-                                        if serie_id is not None:
-                                            await db.execute("UPDATE movies SET is_episode_of_serie_id = ?, season = ?, episode = ? WHERE id = ?", (serie_id, metadata.season, metadata.episode, movie.id))
-                                            await db.commit()
-
-            except Exception:
-                log.exception("Unable to us scraper")
-                            
     # Grab a frame only if there is no usable poster: none yet, or the file is gone from the poster folder
     poster_missing = movie.poster_file_name is None or not (POSTER_DIR / movie.poster_file_name).is_file()
     if ( poster_missing or force_update_poster ) and movie.length_in_seconds:
@@ -125,3 +99,40 @@ async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Libra
             log.exception(f"[Scanner] Failed to generate poster for {absolute_path}")
 
     await ws_manager.broadcast(Notification(type=NOTIFICATION_TYPE.MOVIES_UPDATED))
+
+async def apply_metadata(movie: Movie, metadata: Metadata, library: Library):
+    poster_file_name = movie.poster_file_name
+    if metadata.poster_url:
+        poster_file_name = get_poster_from_url(url=metadata.poster_url) or movie.poster_file_name
+
+    title = metadata.movie_title or movie.title
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE movies SET title = ?, poster_file_name = ?, metadata_last_updated = unixepoch(), release_date = ? WHERE id = ?", (title, poster_file_name, metadata.release_date, movie.id))
+        await db.commit()
+
+    movie.title = title
+    movie.poster_file_name = poster_file_name
+
+    for person_metadata in metadata.people:
+        await add_person_to_movie(person_metadata=person_metadata, movie=movie)
+
+    for collection in metadata.collections:
+        await add_collection_to_movie(collection_data=collection, movie=movie)
+
+    if library.type == LIBRARY_TYPE.SERIES and metadata.serie is not None:
+        async with aiosqlite.connect(DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM series WHERE title = ? AND library_id = ?", (metadata.serie.title, library.id)) as cursor:
+                serie_row = await cursor.fetchone()
+
+            if serie_row:
+                serie_id = Serie(**serie_row).id
+            else:
+                serie_poster_file_name = get_poster_from_url(url=metadata.serie.poster_url) if metadata.serie.poster_url else movie.poster_file_name
+                serie_cursor = await db.execute("INSERT INTO series (title, poster_file_name, library_id) VALUES (?, ?, ?)", (metadata.serie.title, serie_poster_file_name, library.id))
+                await db.commit()
+                serie_id = serie_cursor.lastrowid
+
+            if serie_id is not None:
+                await db.execute("UPDATE movies SET is_episode_of_serie_id = ?, season = ?, episode = ? WHERE id = ?", (serie_id, metadata.season, metadata.episode, movie.id))
+                await db.commit()

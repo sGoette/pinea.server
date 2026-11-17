@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request
+from pathlib import Path
+import asyncio
 from fastapi.responses import Response, StreamingResponse
 import aiosqlite
 from os import path
@@ -7,8 +9,16 @@ from typing import List, Optional
 
 from app.config import DB_PATH
 from app.models.movie import Movie
-from app.models.person import Person
+from app.models.person import MoviePerson
+from app.models.collection import Collection
 from app.config import GET_MEDIA_ROOT_FOLDER
+from app.models.library import Library
+from app.models.metadata import SearchResult
+from app.scanner.jobs import ScanJob
+from app.scanner.scraper import find_scraper_config, load_scraper, run_search
+
+import logging
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/movie")
 
@@ -122,22 +132,38 @@ async def stream_movie(request: Request, movie_id: int):
         return StreamingResponse(iter_file_full(), headers=headers, media_type="video/mp4")
 
 
-@router.get("/{movie_id}/people", response_model=List[Person])
+@router.get("/{movie_id}/people", response_model=List[MoviePerson])
 async def get_people(movie_id: int):
+    """Billing order first (people without one, e.g. from folder configs, after that by name)."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute("""
-SELECT p.*
+SELECT p.*, mp.character, mp.sort_order
 FROM people p
 JOIN movies__people mp ON mp.person_id = p.id 
 WHERE mp.movie_id = ?
-ORDER BY p.name ASC
+ORDER BY mp.sort_order IS NULL, mp.sort_order, p.name COLLATE NOCASE
 """, (movie_id,)) as cursor:
             rows = await cursor.fetchall()
 
     if not rows:
         return []
     
+    return [dict(row) for row in rows]
+
+@router.get("/{movie_id}/collections", response_model=List[Collection])
+async def get_collections(movie_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("""
+SELECT c.*
+FROM collections c
+JOIN movies__collections mc ON mc.collection_id = c.id
+WHERE mc.movie_id = ?
+ORDER BY c.title COLLATE NOCASE
+""", (movie_id,)) as cursor:
+            rows = await cursor.fetchall()
+
     return [dict(row) for row in rows]
 
 @router.get("/{movie_id}/extras", response_model=List[Movie])
@@ -151,3 +177,48 @@ async def get_extras(movie_id: int):
         return []
     
     return [dict(row) for row in rows]
+
+
+async def _movie_with_library(movie_id: int) -> tuple[Movie, Library, Path]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM movies WHERE id = ?", (movie_id,)) as cursor:
+            movie_row = await cursor.fetchone()
+        if movie_row is None:
+            raise HTTPException(status_code=404, detail="Movie not found")
+        movie = Movie(**movie_row)
+
+        async with db.execute("SELECT * FROM libraries WHERE id = ?", (movie.library_id,)) as cursor:
+            library_row = await cursor.fetchone()
+        if library_row is None:
+            raise HTTPException(status_code=404, detail="Library not found")
+
+    absolute_path = Path(await GET_MEDIA_ROOT_FOLDER()) / movie.file_location
+    return movie, Library(**library_row), absolute_path
+
+@router.get("/{movie_id}/search", response_model=List[SearchResult])
+async def search_metadata(movie_id: int, query: Optional[str] = None):
+    """All hits of the closest scraper for this movie, best first. `query` replaces the title
+    the scraper would take from the file name. Nothing is saved, see POST /{movie_id}/match."""
+    movie, library, absolute_path = await _movie_with_library(movie_id)
+
+    config = await find_scraper_config(absolute_path)
+    if config is None:
+        raise HTTPException(status_code=409, detail="No scraper is configured for this folder (useScraper in a __pinea.json).")
+
+    try:
+        # Scrapers are blocking (requests), keep them off the event loop
+        scraper = await asyncio.to_thread(load_scraper, config.currentPath)
+        return await asyncio.to_thread(run_search, scraper, absolute_path, library, query.strip() if query and query.strip() else None)
+    except Exception as error:
+        log.exception(f"Scraper search failed for movie {movie_id}")
+        raise HTTPException(status_code=502, detail=f"Scraper error: {error}")
+
+@router.post("/{movie_id}/match")
+async def apply_match(request: Request, movie_id: int, search_result: SearchResult):
+    """Fetch the metadata of the chosen search hit and apply it (queued as a scan job).
+    The choice itself is not stored: a later full refresh searches again."""
+    await _movie_with_library(movie_id)
+    request.app.state.scanner.submit(ScanJob(movie_id=movie_id, search_result=search_result))
+    return {"status": "scan queued"}
+

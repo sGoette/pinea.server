@@ -2,7 +2,8 @@ import os
 import aiosqlite
 from pathlib import Path
 
-BASE_DIR = Path(__file__).parent.parent.parent.parent.resolve() #pinea.server folder
+# Install root (pinea.server folder). PINEA_DATA_ROOT overrides it, e.g. for the local sandbox (scripts/dev-sandbox.sh)
+BASE_DIR = Path(os.environ["PINEA_DATA_ROOT"]).resolve() if os.environ.get("PINEA_DATA_ROOT") else Path(__file__).parent.parent.parent.parent.resolve()
 POSTER_DIR = BASE_DIR / "data/posters"
 DB_PATH = BASE_DIR / "data/db/database.sqlite"
 

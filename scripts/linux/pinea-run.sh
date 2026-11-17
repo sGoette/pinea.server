@@ -10,7 +10,8 @@ set -u
 ROOT="${PINEA_ROOT:-/usr/local/pinea.server}"
 CURRENT="$ROOT/current"
 STATE="$ROOT/data/update"
-HOST="${PINEA_HOST:-0.0.0.0}"
+# Empty host = listen on all IPv4 and IPv6 addresses (two sockets). Set PINEA_HOST=0.0.0.0 for IPv4 only.
+HOST="${PINEA_HOST-}"
 PORT="${PINEA_PORT:-4000}"
 MAX_ATTEMPTS=3
 

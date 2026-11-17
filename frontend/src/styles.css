@@ -1,20 +1,25 @@
-/* Design tokens */
+/* Design tokens: web copy of the tvOS asset catalog, see design/DESIGN.md */
 :root {
-    --bg: #0f1114;
-    --surface: #16191e;
-    --surface-2: #1d2127;
-    --surface-3: #252a31;
+    --bg: #131313;                      /* tvOS BackgroundBottom */
+    --bg-top: #262626;                  /* subtle, the background must not compete with artwork */
+    --bg-bottom: #131313;
+    --surface: #1b1b1c;
+    --surface-2: #232324;
+    --surface-3: #2d2d2f;
+    --placeholder: #2a2225;             /* tvOS Placeholder */
+    --glass: rgba(40, 40, 42, 0.62);    /* web stand-in for Liquid Glass (with backdrop-filter) */
     --border: rgba(255, 255, 255, 0.07);
     --border-strong: rgba(255, 255, 255, 0.14);
 
-    --text: #e8eaed;
-    --text-muted: #9aa1ab;
-    --text-faint: #6b727c;
+    --text: #f2f2f2;
+    --text-muted: #a3a3a6;
+    --text-faint: #707074;
 
-    --accent: #5eead4;
-    --accent-hover: #99f6e4;
-    --accent-soft: rgba(94, 234, 212, 0.12);
-    --accent-text: #0b2724;
+    --accent: #e60058;                  /* tvOS AccentColor */
+    --accent-hover: #ff2a7a;
+    --accent-secondary: #800031;        /* tvOS AccentSecondaryColor, dark end of the logo gradient */
+    --accent-soft: rgba(230, 0, 88, 0.14);
+    --accent-text: #010000;             /* tvOS primaryNegative: text on accent is black */
     --danger: #f87171;
     --danger-soft: rgba(248, 113, 113, 0.12);
 
@@ -25,6 +30,8 @@
     --topbar-height: 60px;
     --page-padding: 28px;
     --shadow-card: 0 10px 24px rgba(0, 0, 0, 0.35);
+    --shadow-art: 0 6px 18px rgba(0, 0, 0, 0.33);   /* tvOS card shadow: black 33 %, radius 12 */
+    --art-rest: saturate(0.8) brightness(0.8);      /* tvOS: images dimmed at rest, full color on focus */
     --shadow-dialog: 0 24px 64px rgba(0, 0, 0, 0.55);
 
     --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -39,7 +46,7 @@
 
 html, body {
     margin: 0;
-    background-color: var(--bg);
+    background: var(--bg) linear-gradient(to bottom left, var(--bg-top), var(--bg-bottom)) fixed;
     color: var(--text);
     font-family: var(--font);
     font-size: 14px;

@@ -11,5 +11,11 @@ __pycache__/
 # Local data of the dev backend (database, posters, log)
 /data
 
+# Local test environment (scripts/dev-sandbox.sh): fake media, own database, TMDB key
+/.sandbox
+
+# Design reference screenshots (artwork, never commit)
+/design/reference
+
 # macOS
 .DS_Store

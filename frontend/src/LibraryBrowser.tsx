@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router"
 import axios from "axios"
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -18,13 +18,17 @@ import { MovieCard, CollectionCard } from "./MediaCard"
 import { PlayerOverlay } from "./PlayerOverlay"
 import { LibraryDialog } from "./LibraryDialog"
 import { SettingsDialog } from "./SettingsDialog"
+import { MatchDialog } from "./MatchDialog"
+import { MovieDetail } from "./MovieDetail"
+import { PersonDetail } from "./PersonDetail"
 import { useToast } from "./Toast"
 import { useScanStatus } from "./useScanStatus"
 import { pluralize } from "./format"
 import './LibraryBrowser.css'
+import logoUrl from '../../design/logo.svg'
 
 type View = "collections" | "all"
-type OpenDialog = { type: "settings" } | { type: "library", libraryId: number | null } | null
+type OpenDialog = { type: "settings" } | { type: "library", libraryId: number | null } | { type: "match", movie: Movie } | null
 
 // During scans the server sends MOVIES_UPDATED for every file. Refetch at most this often.
 const REFRESH_DEBOUNCE_MS = 800
@@ -34,7 +38,7 @@ export const LibraryBrowser = () => {
     const navigate = useNavigate()
     const toast = useToast()
     const websocketMessage = useContext(WebSocketContext)
-    const { status: scanStatus, startScan } = useScanStatus()
+    const { status: scanStatus, startScan, refresh: refreshScanStatus } = useScanStatus()
 
     const [ libraries, setLibraries ] = useState<Library[] | null>(null)
     const [ collections, setCollections ] = useState<Collection[]>([])
@@ -51,6 +55,9 @@ export const LibraryBrowser = () => {
     const view: View = params.get("view") === "all" ? "all" : "collections"
     const collectionId = Number(params.get("collection")) || null
     const playId = Number(params.get("play")) || null
+    const movieId = Number(params.get("movie")) || null      // detail page
+    const personId = Number(params.get("person")) || null    // person page
+    const detailOpen = movieId !== null || personId !== null
 
     const updateParams = useCallback((changes: Record<string, string | number | null>, replace = false) => {
         setParams(previous => {
@@ -166,10 +173,29 @@ export const LibraryBrowser = () => {
     const visibleCount = showCollections ? visibleCollections.length : visibleMovies.length
 
     // --- Actions ---
-    const selectLibrary = (id: number) => updateParams({ library: id, collection: null })
+    const selectLibrary = (id: number) => updateParams({ library: id, collection: null, movie: null, person: null })
     const setView = (newView: View) => updateParams({ view: newView === "all" ? "all" : null, collection: null })
-    const openCollection = (collection: Collection) => updateParams({ collection: collection.id })
+    const openCollection = (collection: Collection) => updateParams({ view: null, collection: collection.id, movie: null, person: null })
     const closeCollection = () => updateParams({ collection: null })
+
+    // Detail pages. Remember the grid's scroll position and restore it when coming back.
+    const gridScroll = useRef(0)
+    const openMovie = (movie: Movie) => {
+        if (!detailOpen) gridScroll.current = window.scrollY
+        updateParams({ movie: movie.id, person: null })
+    }
+    const openPerson = (person: { id: number }) => {
+        if (!detailOpen) gridScroll.current = window.scrollY
+        updateParams({ person: person.id, movie: null })
+    }
+    const closeDetail = useCallback(() => {
+        // Opened inside the app -> browser back (keeps history clean). Opened from a link -> go to the grid.
+        if ((window.history.state?.idx ?? 0) > 0) navigate(-1)
+        else updateParams({ movie: null, person: null }, true)
+    }, [navigate, updateParams])
+    useLayoutEffect(() => {
+        if (!detailOpen) window.scrollTo(0, gridScroll.current)
+    }, [detailOpen])
 
     const playMovie = (movie: Movie) => {
         playerOpenedInApp.current = true
@@ -191,6 +217,8 @@ export const LibraryBrowser = () => {
         .then(() => toast(`Scanning ${library.name}…`))
         .catch(() => toast("Could not start the scan."))
     }
+
+    const findMatch = (movie: Movie) => setDialog({ type: "match", movie })
 
     const refreshMovie = (movie: Movie) => {
         startScan({ movie_id: movie.id })
@@ -244,7 +272,7 @@ export const LibraryBrowser = () => {
                 {
                     showCollections
                     ? visibleCollections.map(collection => <CollectionCard key={collection.id} collection={collection} onOpen={openCollection} />)
-                    : visibleMovies.map(movie => <MovieCard key={movie.id} movie={movie} onPlay={playMovie} onRefresh={refreshMovie} />)
+                    : visibleMovies.map(movie => <MovieCard key={movie.id} movie={movie} onOpen={openMovie} onPlay={playMovie} />)
                 }
             </div>
         )
@@ -257,7 +285,7 @@ export const LibraryBrowser = () => {
     return (
         <div className="appShell">
             <header className="topBar">
-                <div className="brand"><span className="brandMark" aria-hidden="true" />pinea</div>
+                <div className="brand"><img src={logoUrl} alt="pinea" /></div>
 
                 <nav className="libraryTabs" aria-label="Libraries">
                     {
@@ -270,7 +298,7 @@ export const LibraryBrowser = () => {
                 </nav>
 
                 {
-                    library && (
+                    library && !detailOpen && (
                         <div className="viewControls">
                             <div className="segmented" role="tablist" aria-label="View">
                                 <button role="tab" aria-selected={view === "collections"} className={view === "collections" ? "active" : ""} onClick={() => setView("collections")}>Collections</button>
@@ -308,6 +336,25 @@ export const LibraryBrowser = () => {
 
             <main className="content">
                 {
+                    movieId !== null &&
+                    <MovieDetail
+                        movieId={movieId}
+                        landscape={landscape}
+                        onBack={closeDetail}
+                        onPlay={playMovie}
+                        onOpenPerson={openPerson}
+                        onOpenCollection={openCollection}
+                        onFindMatch={findMatch}
+                        onRefresh={refreshMovie}
+                    />
+                }
+                {
+                    movieId === null && personId !== null &&
+                    <PersonDetail personId={personId} landscape={landscape} onBack={closeDetail} onOpenMovie={openMovie} onPlay={playMovie} />
+                }
+                {/* The grid stays mounted behind detail pages: no reload and no flicker when going back */}
+                <div hidden={detailOpen}>
+                {
                     library && (
                         <div className="contentHeader">
                             {
@@ -324,11 +371,15 @@ export const LibraryBrowser = () => {
                     )
                 }
                 {renderContent()}
+                </div>
             </main>
 
             { playId !== null && <PlayerOverlay movieId={playId} onClose={closePlayer} /> }
 
-            { dialog?.type === "library" && <LibraryDialog libraryId={dialog.libraryId} onClose={closeDialog} onSaved={id => { fetchLibraries(); if (id) selectLibrary(id) }} /> }
+            { dialog?.type === "library" && <LibraryDialog libraryId={dialog.libraryId} onClose={closeDialog} onSaved={id => { fetchLibraries(); if (id) selectLibrary(id) }}
+                onRebuild={id => startScan({ library_id: id, reset_metadata: true }).then(() => toast("Rebuilding metadata…"))}
+                scanRunning={scanStatus.running} /> }
+            { dialog?.type === "match" && <MatchDialog movie={dialog.movie} onClose={closeDialog} onMatched={refreshScanStatus} /> }
             { dialog?.type === "settings" && <SettingsDialog onClose={closeDialog} scanAll={() => startScan({}).then(() => toast("Scanning all libraries…"))} scanRunning={scanStatus.running} /> }
         </div>
     )

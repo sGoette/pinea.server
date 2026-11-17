@@ -10,12 +10,28 @@ export const formatDuration = (seconds: number | null): string | null => {
     return `${minutes}:${secs.toString().padStart(2, "0")}`
 }
 
-// release_date is stored as unix seconds, older data may contain a plain year
+// release_date is stored as unix seconds (negative before 1970), older data may contain a plain year
 export const formatYear = (releaseDate: number | null): string | null => {
     if (!releaseDate) return null
-    if (releaseDate < 10000) return String(releaseDate)
-    return String(new Date(releaseDate * 1000).getFullYear())
+    if (releaseDate > 0 && releaseDate < 10000) return String(releaseDate)
+    return String(new Date(releaseDate * 1000).getUTCFullYear())
 }
 
 export const pluralize = (count: number, singular: string, plural: string = `${singular}s`) =>
     `${count.toLocaleString()} ${count === 1 ? singular : plural}`
+
+export const formatDate = (releaseDate: number | null): string | null => {
+    if (!releaseDate) return null
+    if (releaseDate > 0 && releaseDate < 10000) return String(releaseDate)
+    return new Date(releaseDate * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })
+}
+
+/** "4K", "1080p", "720p", ... Uses the width too, so cropped cinema formats (1920 × 800) count as 1080p. */
+export const formatResolution = (width: number | null, height: number | null): string | null => {
+    if (!width || !height) return null
+    if (width >= 3800 || height >= 2100) return "4K"
+    if (width >= 2500 || height >= 1400) return "1440p"
+    if (width >= 1900 || height >= 1060) return "1080p"
+    if (width >= 1260 || height >= 700) return "720p"
+    return "SD"
+}

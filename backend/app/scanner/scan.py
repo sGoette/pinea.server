@@ -5,6 +5,7 @@ from app.config import DB_PATH, GET_MEDIA_ROOT_FOLDER
 from app.scanner.jobs import ScanJob
 from app.models.library import Library
 from app.scanner.library import scan_library
+from app.scanner.reset import reset_library_metadata
 from app.scanner.metadata import fetch_movie_metadata
 from app.models.movie import Movie
 
@@ -26,7 +27,7 @@ async def scan_libraries(job: ScanJob):
                     library = Library(**library_row)
                     absolute_movie_path = Path(await GET_MEDIA_ROOT_FOLDER()) / movie.file_location
                     # Refresh keeps an existing poster (a scraper may still replace it with a better one)
-                    await fetch_movie_metadata(movie=movie, absolute_path=absolute_movie_path, library=library, update_poster=False)
+                    await fetch_movie_metadata(movie=movie, absolute_path=absolute_movie_path, library=library, update_poster=False, search_result=job.search_result)
 
             return
 
@@ -41,4 +42,6 @@ async def scan_libraries(job: ScanJob):
         libraries = [Library(**dict(row)) for row in rows]
 
         for library in libraries:
-            await scan_library(library=library, ignore_existing_metadata=job.ignore_existing_metadata)
+            if job.reset_metadata and not await reset_library_metadata(library):
+                continue # folder missing: neither reset nor scan
+            await scan_library(library=library, ignore_existing_metadata=job.ignore_existing_metadata or job.reset_metadata)

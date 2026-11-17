@@ -1,0 +1,208 @@
+/* Detail pages (movie, person): tvOS ItemHeaderView + shelves, see design/DESIGN.md */
+.detailPage {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 56px;                          /* tvOS 120 pt between sections */
+    padding-bottom: 24px;
+}
+
+.detailPage > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* tvOS: poster blurred over the whole screen, blend mode color, fades in to 0.6 */
+.detailPage > .detailTint {
+    position: fixed;
+    inset: -10%;
+    z-index: 0;
+    background-position: center;
+    background-size: cover;
+    filter: blur(90px) saturate(1.2);
+    mix-blend-mode: color;
+    opacity: 0;
+    pointer-events: none;
+    animation: detailTintIn 2.5s ease-in-out 0.4s forwards;
+}
+
+@keyframes detailTintIn {
+    to { opacity: 0.6; }
+}
+
+.detailBack {
+    align-self: flex-start;
+    height: 32px;
+    margin: -8px 0 -40px -10px;
+    padding: 0 10px 0 4px;
+}
+
+/* Header: artwork left, text column aligned to the artwork's bottom edge */
+.detailHeader {
+    display: flex;
+    align-items: flex-end;
+    gap: 32px;                          /* tvOS 60 pt */
+}
+
+.detailArt {
+    flex-shrink: 0;
+    width: 220px;
+    aspect-ratio: 0.6748 / 1;
+    overflow: hidden;
+    border-radius: var(--radius);
+    background: var(--placeholder);
+    box-shadow: var(--shadow-card);
+}
+
+.detailHeader.landscape .detailArt {
+    width: 420px;
+    aspect-ratio: 16 / 9;
+}
+
+.detailArt img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.detailInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    padding-bottom: 4px;
+}
+
+.detailEyebrow {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.detailInfo h1 {
+    font-size: 34px;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    overflow-wrap: anywhere;
+}
+
+.detailMeta {
+    color: var(--text-muted);
+    font-size: 15px;
+}
+
+.detailActions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.btnLarge {
+    height: 42px;
+}
+
+.btn.btnLarge {
+    padding: 0 18px;
+    font-size: 15px;
+}
+
+.iconButton.btnLarge {
+    width: 42px;
+}
+
+.btn-primary.btnLarge svg {
+    font-size: 24px;
+}
+
+/* Sections */
+.detailSection {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;                          /* tvOS 30 pt title ↔ shelf */
+}
+
+.detailSection h2 {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* Horizontal shelf (cast). Padding leaves room for the hover scale. */
+.shelf {
+    display: flex;
+    gap: 22px;
+    margin: -6px calc(var(--page-padding) * -1) 0;
+    padding: 6px var(--page-padding) 10px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-3) transparent;
+}
+
+/* Technical details: the only place where the file name shows up */
+.facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px 24px;
+    max-width: 960px;
+    margin: 0;
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--glass);
+    backdrop-filter: blur(16px);
+}
+
+.facts > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.facts .factWide {
+    grid-column: 1 / -1;
+}
+
+.facts dt {
+    color: var(--text-faint);
+    font-size: 12px;
+}
+
+.facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+/* Phone: artwork above the text */
+@media (max-width: 640px) {
+    .detailPage {
+        gap: 40px;
+    }
+
+    .detailBack {
+        margin-bottom: -28px;
+    }
+
+    .detailHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+    }
+
+    .detailArt {
+        width: 160px;
+    }
+
+    .detailHeader.landscape .detailArt {
+        width: 100%;
+    }
+
+    .detailInfo h1 {
+        font-size: 26px;
+    }
+}

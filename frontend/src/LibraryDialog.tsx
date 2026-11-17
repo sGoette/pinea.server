@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react"
 import axios from "axios"
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded'
 import { Dialog } from "./Dialog"
 import { Folder } from "./Folder"
 import { LibraryType, type Library } from "./types/Library"
@@ -11,7 +12,7 @@ const TYPE_LABELS: Record<LibraryType, string> = {
     [LibraryType.VIDEOS]: "Videos (home videos, clips)",
 }
 
-export const LibraryDialog = (props: { libraryId: number | null, onClose: () => void, onSaved: (libraryId: number | null) => void }) => {
+export const LibraryDialog = (props: { libraryId: number | null, onClose: () => void, onSaved: (libraryId: number | null) => void, onRebuild: (libraryId: number) => Promise<void>, scanRunning: boolean }) => {
     const isNew = props.libraryId === null
     const [ name, setName ] = useState<string>("")
     const [ type, setType ] = useState<LibraryType>(LibraryType.MOVIES)
@@ -62,6 +63,23 @@ export const LibraryDialog = (props: { libraryId: number | null, onClose: () => 
         })
     }
 
+    const rebuild = () => {
+        if (props.libraryId === null) return
+        if (!window.confirm(
+            `Rebuild the metadata of “${name}”?\n\n` +
+            "Titles, posters, release dates, people, collections and series of this library are removed " +
+            "and fetched again with the current scraper and folder configs. Titles you picked with “Find match” are searched again.\n\n" +
+            "Your media files are not touched. This can take a while for large libraries."
+        )) return
+        setBusy(true)
+        props.onRebuild(props.libraryId)
+        .then(() => props.onClose())
+        .catch(() => {
+            setError("Could not start the rebuild.")
+            setBusy(false)
+        })
+    }
+
     const canSave = loaded && !busy && name.trim() !== "" && mediaFolder !== ""
 
     return (
@@ -100,6 +118,21 @@ export const LibraryDialog = (props: { libraryId: number | null, onClose: () => 
                         </span>
                     </div>
                 </>
+            }
+            {
+                !isNew && loaded &&
+                <section className="dialogSection">
+                    <h3>Rebuild metadata</h3>
+                    <span className="fieldHint">
+                        Removes all titles, posters, people and collections of this library and scans it again from scratch,
+                        e.g. after switching to another scraper. The library and your files stay.
+                    </span>
+                    <div>
+                        <button className="btn" onClick={rebuild} disabled={busy || props.scanRunning} title={props.scanRunning ? "Wait until the current scan has finished" : undefined}>
+                            <RestartAltRoundedIcon /> Rebuild metadata
+                        </button>
+                    </div>
+                </section>
             }
             { error && <p className="formError">{error}</p> }
         </Dialog>

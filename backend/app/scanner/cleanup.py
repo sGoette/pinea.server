@@ -126,3 +126,13 @@ async def cleanup_orphaned_collections ():
                     await db.commit()
 
         await ws_manager.broadcast(Notification(type=NOTIFICATION_TYPE.COLLECTIONS_UPDATED))
+
+async def cleanup_orphaned_people():
+    """People without any movie, e.g. the cast of a wrong match that was replaced."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Links of deleted movies (most connections run without foreign_keys=ON, so no cascade)
+        await db.execute("DELETE FROM movies__people WHERE movie_id NOT IN (SELECT id FROM movies)")
+        cursor = await db.execute("DELETE FROM people WHERE id NOT IN (SELECT person_id FROM movies__people)")
+        await db.commit()
+        if cursor.rowcount:
+            log.info(f"[Cleanup] Removed {cursor.rowcount} people without movies")

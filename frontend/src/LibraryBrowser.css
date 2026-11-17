@@ -13,26 +13,19 @@
     min-height: var(--topbar-height);
     padding: 10px 16px 10px var(--page-padding);
     border-bottom: 1px solid var(--border);
-    background: rgba(15, 17, 20, 0.82);
+    background: rgba(19, 19, 19, 0.78);
     backdrop-filter: saturate(140%) blur(14px);
 }
 
 .brand {
     display: flex;
-    align-items: center;
-    gap: 8px;
     flex-shrink: 0;
-    font-size: 16px;
-    font-weight: 650;
-    letter-spacing: -0.01em;
 }
 
-.brandMark {
-    width: 10px;
-    height: 10px;
-    border-radius: 3px;
-    background: var(--accent);
-    transform: rotate(45deg);
+.brand img {
+    display: block;
+    height: 30px;
+    width: auto;
 }
 
 .libraryTabs {

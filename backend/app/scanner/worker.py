@@ -7,7 +7,7 @@ from app.scanner.scan import scan_libraries
 import logging
 log = logging.getLogger(__name__)
 
-from app.scanner.cleanup import cleanup_orphaned_posters, cleanup_orphaned_movies, cleanup_orphaned_collections
+from app.scanner.cleanup import cleanup_orphaned_posters, cleanup_orphaned_movies, cleanup_orphaned_collections, cleanup_orphaned_people
 
 class ScannerWorker:
     def __init__(self):
@@ -47,6 +47,9 @@ class ScannerWorker:
 
                 #Cleanup orphaned collections in database -> Collections with 0 movies
                 await cleanup_orphaned_collections()
+
+                #Cleanup orphaned people in database -> People with 0 movies
+                await cleanup_orphaned_people()
                 
                 #Cleanup orphaned posters after scanning
                 await cleanup_orphaned_posters()

@@ -103,9 +103,37 @@ CREATE TABLE IF NOT EXISTS people (
 CREATE TABLE IF NOT EXISTS movies__people (
     movie_id INTEGER NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
     person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+    character TEXT,
+    sort_order INTEGER,
     PRIMARY KEY (movie_id, person_id)
 )
 """)
 
+    await migrate(db)
+
     await db.commit()
     await db.close()
+
+async def _add_column_if_missing(db: aiosqlite.Connection, table: str, column: str, definition: str):
+    async with db.execute(f"PRAGMA table_info({table})") as cursor:
+        columns = [row[1] for row in await cursor.fetchall()]
+    if column not in columns:
+        await db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+# CREATE TABLE IF NOT EXISTS never changes existing tables. Every schema change to an existing
+# table gets a step here, guarded by PRAGMA user_version. New databases already have the new
+# columns from the CREATE statements above, so the steps must be idempotent.
+SCHEMA_VERSION = 1
+
+async def migrate(db: aiosqlite.Connection):
+    async with db.execute("PRAGMA user_version") as cursor:
+        row = await cursor.fetchone()
+        version = row[0] if row else 0
+
+    if version < 1:
+        # Character name and billing order of a person in a movie
+        await _add_column_if_missing(db, "movies__people", "character", "TEXT")
+        await _add_column_if_missing(db, "movies__people", "sort_order", "INTEGER")
+
+    if version < SCHEMA_VERSION:
+        await db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
