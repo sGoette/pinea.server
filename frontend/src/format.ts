@@ -1,4 +1,6 @@
-export const posterUrl = (fileName: string | null) => fileName ? `/api/poster/${encodeURIComponent(fileName)}` : null
+/** size "thumb": small cached version (max 800 × 600) for grids, rows and cast. Full size only for detail headers. */
+export const posterUrl = (fileName: string | null, size?: "thumb") =>
+    fileName ? `/api/poster/${encodeURIComponent(fileName)}${size ? `?size=${size}` : ""}` : null
 
 export const formatDuration = (seconds: number | null): string | null => {
     if (!seconds || seconds <= 0) return null

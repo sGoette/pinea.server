@@ -68,7 +68,7 @@ export const MovieCard = (props: { movie: Movie, onOpen: (movie: Movie) => void,
         <Card
             title={movie.title}
             meta={props.meta ?? [formatYear(movie.release_date), formatDuration(movie.length_in_seconds)]}
-            image={posterUrl(movie.poster_file_name)}
+            image={posterUrl(movie.poster_file_name, "thumb")}
             placeholderIcon={<MovieOutlinedIcon />}
             onOpen={() => props.onOpen(movie)}
             onPlay={() => props.onPlay(movie)}
@@ -83,7 +83,7 @@ export const CollectionCard = (props: { collection: Collection, onOpen: (collect
         <Card
             title={collection.title}
             meta={[collection.movie_count !== undefined ? pluralize(collection.movie_count, "title") : null]}
-            image={posterUrl(collection.poster_file_name)}
+            image={posterUrl(collection.poster_file_name, "thumb")}
             placeholderIcon={<FolderOutlinedIcon />}
             onOpen={() => props.onOpen(collection)}
             onImageRatio={props.onImageRatio}
@@ -94,7 +94,7 @@ export const CollectionCard = (props: { collection: Collection, onOpen: (collect
 /** Cast card: circular photo, name and character are always visible (the role is the information). */
 export const PersonCard = (props: { person: MoviePerson, onOpen: (person: MoviePerson) => void }) => {
     const { person } = props
-    const image = posterUrl(person.poster_file_name)
+    const image = posterUrl(person.poster_file_name, "thumb")
     const role = person.character ?? (person.role === "DIRECTOR" ? "Director" : null)
     return (
         <button className="personCard" onClick={() => props.onOpen(person)} title={role ? `${person.name} as ${role}` : person.name}>

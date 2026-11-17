@@ -4,9 +4,9 @@
     width: 100%;
 }
 
+/* No transitions on left/top/width/height: animating the layout of hundreds of items is expensive */
 .justifiedItem {
     position: absolute;
-    transition: left 0.2s ease-out, top 0.2s ease-out, width 0.2s ease-out, height 0.2s ease-out;
 }
 
 .justifiedItem:hover,
@@ -21,10 +21,4 @@
 .justifiedItem .cardMedia {
     height: 100%;
     aspect-ratio: auto;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .justifiedItem {
-        transition: none;
-    }
 }

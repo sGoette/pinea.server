@@ -89,7 +89,7 @@ export const MovieDetail = (props: {
     ]
 
     return (
-        <DetailPage onBack={props.onBack} tintImage={posterUrl(movie.poster_file_name)}>
+        <DetailPage onBack={props.onBack} tintImage={posterUrl(movie.poster_file_name, "thumb")}>
             <DetailHeader
                 image={posterUrl(movie.poster_file_name)}
                 landscape={props.landscape}

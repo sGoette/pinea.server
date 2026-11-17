@@ -165,7 +165,7 @@ opens its own `aiosqlite.connect(DB_PATH)` without it.
 | GET | `/api/serie/{id}/episodes` | episodes ordered by season, episode |
 | GET | `/api/collections/{library_id}` | collections + `movie_count` |
 | GET | `/api/person/{id}` | one person |
-| GET | `/api/poster/{file_name}` | poster image from POSTER_DIR |
+| GET | `/api/poster/{file_name}?size=thumb` | poster image from POSTER_DIR. `size=thumb`: max 800×600, created on demand in `data/posters/thumbs/` (cleaned up with the posters). Cached as immutable |
 | GET | `/api/filesystem/list?current_directory=` | subfolders inside MEDIA_ROOT_FOLDER (folder picker) |
 | POST | `/api/scan/start?library_id=&ignore_existing_metadata=&movie_id=&force_cleanup=&reset_metadata=` | queue a scan job. `reset_metadata` (needs `library_id`): rebuild, see Scanning |
 | GET | `/api/scan/status` | `{running, pending_jobs, library_id, movie_id}` of the scanner worker |

@@ -1,7 +1,7 @@
 import os
 import aiosqlite
 from pathlib import Path
-from app.config import DB_PATH, GET_MEDIA_ROOT_FOLDER, POSTER_DIR
+from app.config import DB_PATH, GET_MEDIA_ROOT_FOLDER, POSTER_DIR, POSTER_THUMB_DIR
 from app.models.collection import Collection
 from app.models.library import Library
 
@@ -49,8 +49,18 @@ async def cleanup_orphaned_posters():
             except Exception:
                 log.exception(f"[Scanner] Could not delete orphan poster {entry}:")
 
+    # Thumbnails of posters that are gone (or no longer referenced)
+    if POSTER_THUMB_DIR.is_dir():
+        for entry in POSTER_THUMB_DIR.iterdir():
+            if entry.is_file() and (POSTER_DIR / entry.name).resolve() not in referenced:
+                try:
+                    entry.unlink()
+                    removed += 1
+                except Exception:
+                    log.exception(f"[Scanner] Could not delete orphan thumbnail {entry}:")
+
     if removed:
-        log.info(f"[Scanner] Removed {removed} orphan posters")
+        log.info(f"[Scanner] Removed {removed} orphan posters and thumbnails")
 
 # Safety net: if more than this share of a library's movies seem to be gone at once, something is
 # most likely wrong with the mount or the paths (e.g. after a server migration) and not with the media.

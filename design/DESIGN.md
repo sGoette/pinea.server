@@ -126,8 +126,8 @@ Same header with the serie poster and the subtitle "N Seasons", then seasons wit
 | Focus engine | `:hover` for pointer, `:focus-visible` for keyboard. Both use the same "focused" look |
 | Scale 1.35 on focus | Small lift: scale ≈ 1.04 or translateY(-3px). 1.35 is for 10-foot viewing only |
 | Labels only on focus | **Same: artwork first.** Grids show only artwork; title and meta appear on hover/focus in a glass label under the card. Exception: cast cards always show name and character (the role is the information) |
-| Liquid Glass | Translucent surface + `backdrop-filter: blur()` + `--border` hairline |
-| Image dim at rest → full color on focus | Same (saturate 0.8 + 20 % black overlay, removed on hover/focus) |
+| Liquid Glass | Translucent surface + `backdrop-filter: blur()` + `--border` hairline, **only on single elements** (top bar, dialogs). Repeated elements (card labels) use an almost opaque surface instead |
+| Image dim at rest → full color on focus | 20 % black overlay (`--art-dim`), faded out on hover/focus. No saturation filter: CSS filters on every image are too slow |
 | tvOS points | Roughly ÷ 2 for spacing and sizes (e.g. section gap 120 → 56–64 px, poster height 500 → 280–320 px) **(proposal)** |
 | Liquid Glass prominent button | `.btn-primary`: accent fill, **black** text (`primaryNegative`) |
 | Opening a card | Opens the detail page (as on tvOS). Play is a button there and a small play button on the card's hover state. Maintenance actions (refresh metadata, find match) live on the detail page, not on cards |
@@ -160,6 +160,9 @@ never hard-code them in components.
 ---
 
 ## 6. Decisions
+- **Performance rules for grids** (hundreds of posters): hover/focus only animates `transform` and `opacity`;
+  no CSS `filter`, `backdrop-filter`, animated `box-shadow` or layout transitions on repeated elements;
+  grids, rows and cast use thumbnails (`posterUrl(name, "thumb")`), full-size posters only in detail headers.
 - **Artwork first.** Labels are hidden in grids and appear on hover/focus. Layouts should celebrate
   posters and stills: big images, little chrome.
 - **Background:** only a subtle gradient. It must never take the focus off the artwork. Detail pages
@@ -169,14 +172,14 @@ never hard-code them in components.
   collections and extras on a detail page (fixed height, natural width), and "Find match" results
   (whole poster inside a fixed slot).
 - **Library grids per library type** (`frontend/src/gridLayout.ts`): `justified` = rows of equal height that
-  fill the width, every poster in its own ratio (trial: MOVIES); `grid` = fixed columns, cropped to the
-  library's card ratio (SERIES, VIDEOS). Compare on any library with `?layout=grid` / `?layout=justified`.
+  fill the width, every poster in its own ratio (all types for now); `grid` = fixed columns, cropped to
+  the library's card ratio (still available per type). Compare on any library with `?layout=grid` / `?layout=justified`.
 - **No file names in the UI chrome.** The file location is debug information: it only appears in the
   technical details of a detail page, never as a title or subtitle. Detail header subtitle:
   year · duration · resolution.
 - The tvOS app is still in development. When it and this file disagree, ask which one is right.
 
 ## 7. Open questions
-- [ ] Justified rows (trial on MOVIES): keep, and for which library types? If yes: store poster sizes on the server, so rows don't adjust while posters load.
+- [ ] Justified rows (on for all library types): keep, and for which types? If yes: store poster sizes on the server, so rows don't adjust while posters load.
 - [ ] tvOS `Person` decodes `order`, the server sends `sort_order` → rename it in the tvOS model.
       (Nothing breaks meanwhile, because the field is optional and the list is already sorted.)

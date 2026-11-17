@@ -33,9 +33,9 @@ type View = "collections" | "all"
 
 // Stable helpers for JustifiedGrid (no new functions on every render)
 const movieKey = (movie: Movie) => movie.id
-const movieImage = (movie: Movie) => posterUrl(movie.poster_file_name)
+const movieImage = (movie: Movie) => posterUrl(movie.poster_file_name, "thumb")    // same URL as MovieCard
 const collectionKey = (collection: Collection) => collection.id
-const collectionImage = (collection: Collection) => posterUrl(collection.poster_file_name)
+const collectionImage = (collection: Collection) => posterUrl(collection.poster_file_name, "thumb")
 type OpenDialog = { type: "settings" } | { type: "library", libraryId: number | null } | { type: "match", movie: Movie } | null
 
 // During scans the server sends MOVIES_UPDATED for every file. Refetch at most this often.

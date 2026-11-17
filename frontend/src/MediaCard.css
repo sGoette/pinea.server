@@ -27,6 +27,7 @@
     z-index: 2;
 }
 
+/* Performance: hover only animates transform and opacity (GPU), never filters, shadows or blur */
 .cardMedia {
     position: relative;
     aspect-ratio: var(--card-aspect);
@@ -34,7 +35,7 @@
     border-radius: var(--radius);
     background: var(--placeholder);
     box-shadow: var(--shadow-art);
-    transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+    transition: transform 0.15s ease-out;
 }
 
 .cardMedia img {
@@ -42,23 +43,31 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    filter: var(--art-rest);
-    transition: filter 0.15s ease-out;
+}
+
+/* Dimmed at rest, full brightness on hover/focus */
+.cardMedia::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--art-dim);
+    pointer-events: none;
+    transition: opacity 0.15s ease-out;
 }
 
 .card:hover .cardMedia,
 .card:focus-visible .cardMedia {
     transform: scale(1.04);
-    box-shadow: 0 0 0 1px var(--border-strong), var(--shadow-card);
 }
 
-.card:hover .cardMedia img,
-.card:focus-visible .cardMedia img {
-    filter: none;
+.card:hover .cardMedia::after,
+.card:focus-visible .cardMedia::after {
+    opacity: 0;
 }
 
 .card:focus-visible .cardMedia {
-    box-shadow: 0 0 0 2px var(--accent), var(--shadow-card);
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 
 /* Missing image: tvOS Placeholder color, thin icon in accent at 40 % */
@@ -89,20 +98,22 @@
     padding: 6px 10px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    background: var(--glass);
-    backdrop-filter: blur(16px) saturate(140%);
+    background: rgba(34, 34, 36, 0.94);   /* no backdrop-filter: one blur layer per card is far too expensive */
     box-shadow: var(--shadow-art);
     font-size: 12px;
     opacity: 0;
+    visibility: hidden;                   /* hidden labels aren't rendered at all */
     transform: translateY(-4px);
     pointer-events: none;
-    transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+    transition: opacity 0.15s ease-out, transform 0.15s ease-out, visibility 0s linear 0.15s;
 }
 
 .card:hover .cardLabel,
 .card:focus-visible .cardLabel {
     opacity: 1;
+    visibility: visible;
     transform: none;
+    transition: opacity 0.15s ease-out, transform 0.15s ease-out;
 }
 
 .cardTitle {
@@ -122,6 +133,7 @@
 
 .cardPlay {
     position: absolute;
+    z-index: 1;                           /* above the dim overlay */
     right: 8px;
     bottom: 8px;
     display: flex;
@@ -228,6 +240,7 @@
 }
 
 .personPhoto {
+    position: relative;
     display: block;
     width: 108px;
     height: 108px;
@@ -236,7 +249,7 @@
     border-radius: 50%;
     background: var(--placeholder);
     box-shadow: var(--shadow-art);
-    transition: border-radius 0.15s ease-out, transform 0.15s ease-out, box-shadow 0.15s ease-out;
+    transition: border-radius 0.15s ease-out, transform 0.15s ease-out;
 }
 
 .personPhoto img {
@@ -244,8 +257,15 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    filter: var(--art-rest);
-    transition: filter 0.15s ease-out;
+}
+
+.personPhoto::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--art-dim);
+    pointer-events: none;
+    transition: opacity 0.15s ease-out;
 }
 
 .personPhoto .artPlaceholder svg {
@@ -259,12 +279,13 @@
 }
 
 .personCard:focus-visible .personPhoto {
-    box-shadow: 0 0 0 2px var(--accent), var(--shadow-card);
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 
-.personCard:hover .personPhoto img,
-.personCard:focus-visible .personPhoto img {
-    filter: none;
+.personCard:hover .personPhoto::after,
+.personCard:focus-visible .personPhoto::after {
+    opacity: 0;
 }
 
 .personName,

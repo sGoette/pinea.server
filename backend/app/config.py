@@ -5,6 +5,7 @@ from pathlib import Path
 # Install root (pinea.server folder). PINEA_DATA_ROOT overrides it, e.g. for the local sandbox (scripts/dev-sandbox.sh)
 BASE_DIR = Path(os.environ["PINEA_DATA_ROOT"]).resolve() if os.environ.get("PINEA_DATA_ROOT") else Path(__file__).parent.parent.parent.parent.resolve()
 POSTER_DIR = BASE_DIR / "data/posters"
+POSTER_THUMB_DIR = POSTER_DIR / "thumbs"      # small versions for the web UI, created on demand (api/poster.py)
 DB_PATH = BASE_DIR / "data/db/database.sqlite"
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]      # backend/app -> backend

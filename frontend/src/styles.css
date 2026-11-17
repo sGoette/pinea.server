@@ -31,7 +31,7 @@
     --page-padding: 28px;
     --shadow-card: 0 10px 24px rgba(0, 0, 0, 0.35);
     --shadow-art: 0 6px 18px rgba(0, 0, 0, 0.33);   /* tvOS card shadow: black 33 %, radius 12 */
-    --art-rest: saturate(0.8) brightness(0.8);      /* tvOS: images dimmed at rest, full color on focus */
+    --art-dim: rgba(0, 0, 0, 0.2);                  /* tvOS: images dimmed at rest (overlay, not a CSS filter: cheaper) */
     --shadow-dialog: 0 24px 64px rgba(0, 0, 0, 0.55);
 
     --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -46,7 +46,7 @@
 
 html, body {
     margin: 0;
-    background: var(--bg) linear-gradient(to bottom left, var(--bg-top), var(--bg-bottom)) fixed;
+    background-color: var(--bg);
     color: var(--text);
     font-family: var(--font);
     font-size: 14px;
@@ -56,6 +56,16 @@ html, body {
 
 #root {
     min-height: 100vh;
+}
+
+/* Page gradient on its own fixed layer: background-attachment: fixed would repaint on every scroll */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(to bottom left, var(--bg-top), var(--bg-bottom));
+    pointer-events: none;
 }
 
 h1, h2, h3, p {
