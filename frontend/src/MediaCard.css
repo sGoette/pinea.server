@@ -155,14 +155,21 @@
 }
 
 /* Single-row shelves (collections, extras on the detail page): fixed height, every card in its
-   artwork's own aspect ratio. Padding: room for the hover lift above and the hover label below. */
+   artwork's own aspect ratio. Padding: room for the hover lift above and the hover label below
+   (a scrolling row clips everything outside its padding box).
+   `.shelf.artShelf`: must win over the padding/margin shorthands of `.shelf` in DetailPage.css. */
 .artShelf {
     --shelf-height: 200px;
     --card-aspect: 0.6748 / 1;          /* only for placeholders without an image */
+}
+
+.shelf.artShelf {
     gap: 22px;
-    padding-top: 8px;
-    padding-bottom: 52px;
-    margin-bottom: -40px;
+    padding-top: 10px;
+    padding-bottom: 56px;
+    margin-top: -10px;
+    margin-bottom: -44px;               /* the label space doesn't add to the section spacing */
+    overflow-y: hidden;                 /* never a vertical scrollbar, even if a label is taller */
 }
 
 .artShelf.landscape {
