@@ -9,8 +9,8 @@ export type GridLayout = "grid" | "justified"
 
 /** Layout per library type. Roll the justified layout out (or back) here. */
 export const GRID_LAYOUT: Record<LibraryType, GridLayout> = {
-    [LibraryType.MOVIES]: "justified",
-    [LibraryType.SERIES]: "justified",
+    [LibraryType.MOVIES]: "grid",
+    [LibraryType.SERIES]: "grid",
     [LibraryType.VIDEOS]: "justified",
 }
 

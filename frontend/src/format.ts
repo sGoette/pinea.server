@@ -37,3 +37,10 @@ export const formatResolution = (width: number | null, height: number | null): s
     if (width >= 1260 || height >= 700) return "720p"
     return "SD"
 }
+
+/** "Season 2", "Specials" (season 0), "Other episodes" (no season) */
+export const seasonLabel = (season: string | null): string => {
+    if (season === null || season === "") return "Other episodes"
+    if (/^0+$/.test(season)) return "Specials"
+    return /^\d+$/.test(season) ? `Season ${Number(season)}` : season
+}

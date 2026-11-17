@@ -14,13 +14,15 @@ import { NotificationType } from "./types/NotificationType"
 import { LibraryType, type Library } from "./types/Library"
 import type { Movie } from "./types/Movie"
 import type { Collection } from "./types/Collection"
-import { MovieCard, CollectionCard } from "./MediaCard"
+import { MovieCard, CollectionCard, SerieCard } from "./MediaCard"
+import type { Serie } from "./types/Serie"
 import { PlayerOverlay } from "./PlayerOverlay"
 import { LibraryDialog } from "./LibraryDialog"
 import { SettingsDialog } from "./SettingsDialog"
 import { MatchDialog } from "./MatchDialog"
 import { MovieDetail } from "./MovieDetail"
 import { PersonDetail } from "./PersonDetail"
+import { SerieDetail } from "./SerieDetail"
 import { useToast } from "./Toast"
 import { useScanStatus } from "./useScanStatus"
 import { pluralize, posterUrl } from "./format"
@@ -51,6 +53,7 @@ export const LibraryBrowser = () => {
     const [ libraries, setLibraries ] = useState<Library[] | null>(null)
     const [ collections, setCollections ] = useState<Collection[]>([])
     const [ movies, setMovies ] = useState<Movie[]>([])
+    const [ series, setSeries ] = useState<Serie[]>([])
     const [ loading, setLoading ] = useState<boolean>(false)
     const [ search, setSearch ] = useState<string>("")
     const [ dialog, setDialog ] = useState<OpenDialog>(null)
@@ -65,7 +68,9 @@ export const LibraryBrowser = () => {
     const playId = Number(params.get("play")) || null
     const movieId = Number(params.get("movie")) || null      // detail page
     const personId = Number(params.get("person")) || null    // person page
-    const detailOpen = movieId !== null || personId !== null
+    const serieId = Number(params.get("serie")) || null      // serie page (SERIES libraries)
+    const seasonParam = serieId !== null ? params.get("season") : null   // season page inside a serie
+    const detailOpen = movieId !== null || personId !== null || serieId !== null
 
     const updateParams = useCallback((changes: Record<string, string | number | null>, replace = false) => {
         setParams(previous => {
@@ -79,6 +84,8 @@ export const LibraryBrowser = () => {
     }, [setParams])
 
     const library = libraries?.find(l => l.id === libraryId) ?? null
+    const libraryType = library?.type ?? null
+    const isSeriesLibrary = libraryType === LibraryType.SERIES
 
     // --- Data ---
     const fetchLibraries = useCallback(() => {
@@ -91,13 +98,24 @@ export const LibraryBrowser = () => {
     const fetchContent = useCallback(async () => {
         const requestId = ++requestCounter.current
         const isCurrent = () => requestId === requestCounter.current
-        if (!libraryId) {
+        if (!libraryId || !libraryType) {
             setMovies([])
             setCollections([])
+            setSeries([])
             return
         }
         try {
-            if (view === "collections") {
+            if (libraryType === LibraryType.SERIES) {
+                // Series libraries show only the series (+ files that aren't assigned to one)
+                const [ seriesResponse, moviesResponse ] = await Promise.all([
+                    axios.get<Serie[]>(`/api/series/${libraryId}`),
+                    axios.get<Movie[]>(`/api/movies/${libraryId}`),
+                ])
+                if (isCurrent()) {
+                    setSeries(seriesResponse.data)
+                    setMovies(moviesResponse.data.filter(movie => movie.is_episode_of_serie_id === null))
+                }
+            } else if (view === "collections") {
                 const collectionsResponse = await axios.get<Collection[]>(`/api/collections/${libraryId}`)
                 if (isCurrent()) setCollections(collectionsResponse.data)
                 if (collectionId) {
@@ -111,7 +129,7 @@ export const LibraryBrowser = () => {
         } catch {
             if (isCurrent()) toast("Could not load the library.")
         }
-    }, [libraryId, view, collectionId, toast])
+    }, [libraryId, libraryType, view, collectionId, toast])
 
     const latestFetchContent = useRef(fetchContent)
     latestFetchContent.current = fetchContent
@@ -128,6 +146,7 @@ export const LibraryBrowser = () => {
     useEffect(() => {
         setMovies([])
         setCollections([])
+        setSeries([])
         setSearch("")
         setLoading(true)
         fetchContent().finally(() => setLoading(false))
@@ -177,13 +196,16 @@ export const LibraryBrowser = () => {
     const visibleMovies = useMemo(
         () => query ? movies.filter(m => m.title.toLocaleLowerCase().includes(query)) : movies,
         [movies, query])
-    const itemCount = showCollections ? collections.length : movies.length
-    const visibleCount = showCollections ? visibleCollections.length : visibleMovies.length
+    const visibleSeries = useMemo(
+        () => query ? series.filter(s => s.title.toLocaleLowerCase().includes(query)) : series,
+        [series, query])
+    const itemCount = isSeriesLibrary ? series.length + movies.length : showCollections ? collections.length : movies.length
+    const visibleCount = isSeriesLibrary ? visibleSeries.length + visibleMovies.length : showCollections ? visibleCollections.length : visibleMovies.length
 
     // --- Actions ---
-    const selectLibrary = (id: number) => updateParams({ library: id, collection: null, movie: null, person: null })
+    const selectLibrary = (id: number) => updateParams({ library: id, collection: null, movie: null, person: null, serie: null, season: null })
     const setView = (newView: View) => updateParams({ view: newView === "all" ? "all" : null, collection: null })
-    const openCollection = (collection: Collection) => updateParams({ view: null, collection: collection.id, movie: null, person: null })
+    const openCollection = (collection: Collection) => updateParams({ view: null, collection: collection.id, movie: null, person: null, serie: null, season: null })
     const closeCollection = () => updateParams({ collection: null })
 
     // Detail pages. Remember the grid's scroll position and restore it when coming back.
@@ -196,11 +218,19 @@ export const LibraryBrowser = () => {
         if (!detailOpen) gridScroll.current = window.scrollY
         updateParams({ person: person.id, movie: null })
     }
+    // Series: serie -> season -> episode (movie detail). Each level is one history entry.
+    const openSerie = (serie: Serie) => {
+        if (!detailOpen) gridScroll.current = window.scrollY
+        updateParams({ serie: serie.id, season: null, movie: null, person: null })
+    }
+    const openSeason = (key: string) => updateParams({ season: key, movie: null, person: null })
     const closeDetail = useCallback(() => {
-        // Opened inside the app -> browser back (keeps history clean). Opened from a link -> go to the grid.
+        // Opened inside the app -> browser back (keeps history clean). Opened from a link -> one level up.
         if ((window.history.state?.idx ?? 0) > 0) navigate(-1)
-        else updateParams({ movie: null, person: null }, true)
-    }, [navigate, updateParams])
+        else if (movieId !== null || personId !== null) updateParams({ movie: null, person: null }, true)
+        else if (seasonParam !== null) updateParams({ season: null }, true)
+        else updateParams({ serie: null }, true)
+    }, [navigate, updateParams, movieId, personId, seasonParam])
     useLayoutEffect(() => {
         if (!detailOpen) window.scrollTo(0, gridScroll.current)
     }, [detailOpen])
@@ -259,7 +289,16 @@ export const LibraryBrowser = () => {
 
         if (visibleCount === 0) {
             if (query) return <p className="contentHint">Nothing matches “{search.trim()}”.</p>
-            if (showCollections) {
+            if (isSeriesLibrary && itemCount === 0) {
+                return (
+                    <div className="emptyState">
+                        <h2>No series yet</h2>
+                        <p>Scan the library to find new media. Series and seasons come from the scraper.</p>
+                        <button className="btn btn-primary" onClick={scanLibrary} disabled={scanStatus.running}><RefreshRoundedIcon /> Scan library</button>
+                    </div>
+                )
+            }
+            if (showCollections && !isSeriesLibrary) {
                 return (
                     <div className="emptyState">
                         <h2>No collections</h2>
@@ -275,6 +314,27 @@ export const LibraryBrowser = () => {
                     <button className="btn btn-primary" onClick={scanLibrary} disabled={scanStatus.running}><RefreshRoundedIcon /> Scan library</button>
                 </div>
             )
+        }
+
+        if (isSeriesLibrary) {
+            return <>
+                {
+                    visibleSeries.length > 0 &&
+                    <div className="mediaGrid">
+                        { visibleSeries.map(serie => <SerieCard key={serie.id} serie={serie} onOpen={openSerie} />) }
+                    </div>
+                }
+                {
+                    // Files the scraper couldn't assign to a serie: still reachable
+                    visibleMovies.length > 0 &&
+                    <section className="unassignedSection">
+                        <h2>Not assigned to a series</h2>
+                        <div className="mediaGrid">
+                            { visibleMovies.map(movie => <MovieCard key={movie.id} movie={movie} onOpen={openMovie} onPlay={playMovie} />) }
+                        </div>
+                    </section>
+                }
+            </>
         }
 
         if (layout === "justified") {
@@ -307,9 +367,12 @@ export const LibraryBrowser = () => {
         )
     }
 
+    const countNoun: [string, string] = isSeriesLibrary ? ["series", "series"] : showCollections ? ["collection", "collections"] : ["title", "titles"]
+    const countValue = isSeriesLibrary ? series.length : itemCount
+    const visibleCountValue = isSeriesLibrary ? visibleSeries.length : visibleCount
     const countLabel = query
-        ? `${visibleCount.toLocaleString()} of ${pluralize(itemCount, showCollections ? "collection" : "title")}`
-        : pluralize(itemCount, showCollections ? "collection" : "title")
+        ? `${visibleCountValue.toLocaleString()} of ${pluralize(countValue, ...countNoun)}`
+        : pluralize(countValue, ...countNoun)
 
     return (
         <div className="appShell">
@@ -329,10 +392,13 @@ export const LibraryBrowser = () => {
                 {
                     library && !detailOpen && (
                         <div className="viewControls">
+                            {
+                            !isSeriesLibrary &&
                             <div className="segmented" role="tablist" aria-label="View">
                                 <button role="tab" aria-selected={view === "collections"} className={view === "collections" ? "active" : ""} onClick={() => setView("collections")}>Collections</button>
                                 <button role="tab" aria-selected={view === "all"} className={view === "all" ? "active" : ""} onClick={() => setView("all")}>All</button>
                             </div>
+                            }
                             <label className="searchBox">
                                 <SearchRoundedIcon />
                                 <input ref={searchInput} type="search" placeholder="Search" value={search} onChange={event => setSearch(event.target.value)} aria-label="Search titles" />
@@ -381,13 +447,24 @@ export const LibraryBrowser = () => {
                     movieId === null && personId !== null &&
                     <PersonDetail personId={personId} landscape={landscape} onBack={closeDetail} onOpenMovie={openMovie} onPlay={playMovie} />
                 }
+                {
+                    movieId === null && personId === null && serieId !== null &&
+                    <SerieDetail
+                        serieId={serieId}
+                        season={seasonParam}
+                        onBack={closeDetail}
+                        onOpenSeason={openSeason}
+                        onOpenEpisode={openMovie}
+                        onPlay={playMovie}
+                    />
+                }
                 {/* The grid stays mounted behind detail pages: no reload and no flicker when going back */}
                 <div hidden={detailOpen}>
                 {
                     library && (
                         <div className="contentHeader">
                             {
-                                collectionId !== null
+                                collectionId !== null && !isSeriesLibrary
                                 ? <nav className="breadcrumb" aria-label="Breadcrumb">
                                     <button className="btn btn-ghost breadcrumbBack" onClick={closeCollection}><ChevronLeftRoundedIcon /> Collections</button>
                                     <span className="breadcrumbSeparator">/</span>

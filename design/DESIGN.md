@@ -115,7 +115,18 @@ Same header as the movie detail: the person's portrait, name, actions **Play All
 Below it, a grid of their movies.
 
 ### Series
-Same header with the serie poster and the subtitle "N Seasons", then seasons with episodes.
+tvOS: same header with the serie poster and the subtitle "N Seasons", then **all seasons on one page**, each as a
+horizontal shelf of 16:9 episode cards. An episode opens the movie detail view (with cast).
+
+Web (four levels, each its own URL and history entry):
+1. **Library** (SERIES type): only the series as a poster grid ("N seasons" on hover). Files the scraper couldn't
+   assign to a serie are listed below under "Not assigned to a series", so nothing disappears.
+2. **Serie** (`?serie=`): detail header (poster, title, seasons · episodes · years, Play = first episode of the
+   first regular season), then the seasons as a poster grid. Season poster = the poster of its episodes (the TMDB
+   scraper stores the season poster there), else the serie's. Specials (season 0) come last.
+3. **Season** (`&season=`): detail header with the season poster (serie name above the title, Play = first
+   episode), then the **episode list**: number, title, air date · duration, play button on hover.
+4. **Episode** (`?movie=`): the movie detail page with cast. Above the title: serie · season · episode.
 
 ---
 
@@ -172,14 +183,14 @@ never hard-code them in components.
   collections and extras on a detail page (fixed height, natural width), and "Find match" results
   (whole poster inside a fixed slot).
 - **Library grids per library type** (`frontend/src/gridLayout.ts`): `justified` = rows of equal height that
-  fill the width, every poster in its own ratio (all types for now); `grid` = fixed columns, cropped to
-  the library's card ratio (still available per type). Compare on any library with `?layout=grid` / `?layout=justified`.
+  fill the width, every poster in its own ratio (VIDEOS: mixed portrait and landscape); `grid` = fixed
+  columns, cropped to the library's card ratio (MOVIES, SERIES: posters are portrait anyway). Compare on any library with `?layout=grid` / `?layout=justified`.
 - **No file names in the UI chrome.** The file location is debug information: it only appears in the
   technical details of a detail page, never as a title or subtitle. Detail header subtitle:
   year · duration · resolution.
 - The tvOS app is still in development. When it and this file disagree, ask which one is right.
 
 ## 7. Open questions
-- [ ] Justified rows (on for all library types): keep, and for which types? If yes: store poster sizes on the server, so rows don't adjust while posters load.
+- [ ] Justified rows (on for VIDEOS): If yes: store poster sizes on the server, so rows don't adjust while posters load.
 - [ ] tvOS `Person` decodes `order`, the server sends `sort_order` → rename it in the tvOS model.
       (Nothing breaks meanwhile, because the field is optional and the list is already sorted.)

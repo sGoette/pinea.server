@@ -6,6 +6,8 @@ import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded'
 import type { Movie } from "./types/Movie"
 import type { Collection } from "./types/Collection"
 import type { MoviePerson } from "./types/Person"
+import type { Serie } from "./types/Serie"
+import TvOutlinedIcon from '@mui/icons-material/TvOutlined'
 import { formatDuration, formatYear, pluralize, posterUrl } from "./format"
 import './MediaCard.css'
 
@@ -90,6 +92,31 @@ export const CollectionCard = (props: { collection: Collection, onOpen: (collect
         />
     )
 }
+
+export const SerieCard = (props: { serie: Serie, onOpen: (serie: Serie) => void }) => {
+    const { serie } = props
+    return (
+        <Card
+            title={serie.title}
+            meta={[serie.seasons_count > 0 ? pluralize(serie.seasons_count, "season") : null]}
+            image={posterUrl(serie.poster_file_name, "thumb")}
+            placeholderIcon={<TvOutlinedIcon />}
+            onOpen={() => props.onOpen(serie)}
+        />
+    )
+}
+
+/** A season of a serie. The poster is the season poster (or the serie's), see SerieDetail. */
+export const SeasonCard = (props: { title: string, episodeCount: number, posterFileName: string | null, onOpen: () => void, onPlay?: () => void }) => (
+    <Card
+        title={props.title}
+        meta={[pluralize(props.episodeCount, "episode")]}
+        image={posterUrl(props.posterFileName, "thumb")}
+        placeholderIcon={<TvOutlinedIcon />}
+        onOpen={props.onOpen}
+        {...(props.onPlay ? { onPlay: props.onPlay } : {})}
+    />
+)
 
 /** Cast card: circular photo, name and character are always visible (the role is the information). */
 export const PersonCard = (props: { person: MoviePerson, onOpen: (person: MoviePerson) => void }) => {

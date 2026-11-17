@@ -23,6 +23,7 @@ async def get_series(library_id: int):
                 ) AS seasons_count
             FROM series 
             WHERE library_id = ?
+            ORDER BY title COLLATE NOCASE
             """,
         (library_id,)) as cursor:
             rows = await cursor.fetchall()

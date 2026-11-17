@@ -11,7 +11,7 @@ import type { Collection } from "./types/Collection"
 import type { MoviePerson } from "./types/Person"
 import { CollectionCard, MovieCard, PersonCard } from "./MediaCard"
 import { DetailHeader, DetailPage } from "./DetailPage"
-import { formatDate, formatDuration, formatResolution, formatYear, posterUrl } from "./format"
+import { formatDate, formatDuration, formatResolution, formatYear, posterUrl, seasonLabel } from "./format"
 
 const EXTRA_LABELS: Record<string, string> = {
     TRAILER: "Trailer",
@@ -21,7 +21,7 @@ const EXTRA_LABELS: Record<string, string> = {
 
 const REFRESH_DEBOUNCE_MS = 800
 
-type Details = { movie: Movie, people: MoviePerson[], extras: Movie[], collections: Collection[] }
+type Details = { movie: Movie, people: MoviePerson[], extras: Movie[], collections: Collection[], serieTitle: string | null }
 
 export const MovieDetail = (props: {
     movieId: number
@@ -47,9 +47,14 @@ export const MovieDetail = (props: {
             axios.get<Movie[]>(`/api/movie/${id}/extras`),
             axios.get<Collection[]>(`/api/movie/${id}/collections`),
         ])
-        .then(([ movie, people, extras, collections ]) => {
+        .then(async ([ movie, people, extras, collections ]) => {
+            // Episodes: show the serie's name above the title
+            let serieTitle: string | null = null
+            if (movie.data.is_episode_of_serie_id !== null) {
+                serieTitle = await axios.get<{ title: string }>(`/api/serie/${movie.data.is_episode_of_serie_id}`).then(r => r.data.title).catch(() => null)
+            }
             if (requestId !== requestCounter.current) return
-            setDetails({ movie: movie.data, people: people.data, extras: extras.data, collections: collections.data })
+            setDetails({ movie: movie.data, people: people.data, extras: extras.data, collections: collections.data, serieTitle })
             setError(null)
         })
         .catch(() => { if (requestId === requestCounter.current) setError("This title doesn't exist anymore.") })
@@ -72,10 +77,10 @@ export const MovieDetail = (props: {
     if (error) return <DetailPage onBack={props.onBack}><p className="contentHint">{error}</p></DetailPage>
     if (!details) return <DetailPage onBack={props.onBack}><p className="contentHint">Loading…</p></DetailPage>
 
-    const { movie, people, extras, collections } = details
+    const { movie, people, extras, collections, serieTitle } = details
     const resolution = formatResolution(movie.width, movie.height)
-    const episodeLabel = movie.season !== null || movie.episode !== null
-        ? [movie.season !== null ? `Season ${movie.season}` : null, movie.episode !== null ? `Episode ${movie.episode}` : null].filter(Boolean).join(" · ")
+    const episodeLabel = movie.season !== null || movie.episode !== null || serieTitle
+        ? [serieTitle, movie.season !== null ? seasonLabel(movie.season) : null, movie.episode !== null ? `Episode ${movie.episode}` : null].filter(Boolean).join(" · ")
         : null
 
     const facts: [string, string | null][] = [

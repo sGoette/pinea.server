@@ -50,6 +50,7 @@ frontend/
   src/MovieDetail.tsx       # movie detail page (?movie=<id>): header, cast & crew, extras, collections, details
   src/PersonDetail.tsx      # person page (?person=<id>): photo, name, their titles
   src/JustifiedGrid.tsx     # justified rows (each poster in its own ratio); gridLayout.ts picks grid/justified per library type
+  src/SerieDetail.tsx       # serie page (?serie=) with seasons, season page (&season=) with the episode list
   src/DetailPage.tsx        # shared frame (back, poster tint) + header of detail pages
   src/MatchDialog.tsx       # "Find match": all scraper hits for a movie, pick one to apply
   src/LibraryDialog.tsx, SettingsDialog.tsx, UpdatePanel.tsx, Folder.tsx (folder picker), Dialog.tsx, Toast.tsx
@@ -161,7 +162,8 @@ opens its own `aiosqlite.connect(DB_PATH)` without it.
 | POST | `/api/movie/{id}/match` | body `SearchResult`: queue a job that applies this hit (not stored) |
 | GET | `/api/movie/{id}/extras` | extras of a movie |
 | GET | `/api/movie/{id}/collections` | collections a movie belongs to |
-| GET | `/api/series/{library_id}` | series + `seasons_count` |
+| GET | `/api/series/{library_id}` | series + `seasons_count`, sorted by title |
+| GET | `/api/serie/{id}` | one serie + `seasons_count` |
 | GET | `/api/serie/{id}/episodes` | episodes ordered by season, episode |
 | GET | `/api/collections/{library_id}` | collections + `movie_count` |
 | GET | `/api/person/{id}` | one person |
@@ -182,7 +184,7 @@ The tvOS app depends on these shapes. Treat response models as a public contract
 - **Design rules: [`design/DESIGN.md`](../design/DESIGN.md). Read it before any UI work.** The tvOS app is the design master;
   update DESIGN.md when a design decision is made. Logo: `design/logo.svg`.
 - One page (`LibraryBrowser`). State lives in the URL query: `library`, `view=all` (default: collections),
-  `collection`, `movie` (detail page), `person` (person page), `play`. Cards open the detail page; the grid stays
+  `collection`, `movie` (detail page), `person` (person page), `serie` + `season` (SERIES libraries), `play`. Cards open the detail page; the grid stays
   mounted (hidden) behind detail pages so its scroll position survives. Reload keeps the place and the browser's back button works (it also closes the player).
 - Dark theme only. Colors, radii and spacing are CSS variables in `styles.css` (the web copy of the tvOS assets, see DESIGN.md). Use them instead of hard-coded values.
 - WebSocket `MOVIES_UPDATED` arrives once per file during scans, so the UI debounces refetches (800 ms).
