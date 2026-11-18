@@ -51,32 +51,6 @@
     pointer-events: none;
 }
 
-/* A light band sweeps across the poster once when the page opens */
-.detailArt::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: -60%;
-    z-index: 1;
-    width: 45%;
-    background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.22) 50%, transparent);
-    transform: translateX(0) skewX(-12deg);
-    opacity: 0;
-    pointer-events: none;
-    animation: detailArtSheen 1.6s cubic-bezier(0.4, 0, 0.2, 1) 0.35s 1;
-}
-
-@keyframes detailArtSheen {
-    0% { opacity: 0; transform: translateX(0) skewX(-12deg); }
-    15% { opacity: 1; }
-    100% { opacity: 0; transform: translateX(420%) skewX(-12deg); }
-}
-
-.detailArt.empty::after {
-    display: none;
-}
-
 /* Full artwork in its own aspect ratio: fixed height, natural width */
 .detailArt img {
     display: block;

@@ -181,7 +181,7 @@ never hard-code them in components.
   and no tint from the artwork (tvOS's blurred poster background is not used on the web). Allowed alternatives:
   plain dark gray or a fine noise texture.
 - **Effects go on the artwork, not the page:** the detail poster is "lit": neutral light from the top left, a
-  bright edge, a deep shadow and one light sweep when the page opens. All white/black, never colored.
+  bright edge and a deep shadow. All white/black, never colored, and **not animated** (a light sweep was tried and removed).
 - **Artwork keeps its own aspect ratio** (posters can be portrait or landscape) wherever the layout
   allows it: detail headers (fixed height 400 px, natural width), single-row shelves such as
   collections and extras on a detail page (fixed height, natural width), and "Find match" results
