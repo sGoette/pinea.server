@@ -112,7 +112,7 @@ export const SerieDetail = (props: {
         if (!season) return <DetailPage onBack={props.onBack}><p className="contentHint">This season has no episodes anymore.</p></DetailPage>
         const first = season.episodes[0]
         return (
-            <DetailPage onBack={props.onBack} tintImage={posterUrl(season.posterFileName, "thumb")}>
+            <DetailPage onBack={props.onBack}>
                 <DetailHeader
                     image={posterUrl(season.posterFileName)}
                     placeholderIcon={<TvOutlinedIcon />}
@@ -137,7 +137,7 @@ export const SerieDetail = (props: {
     const firstEpisode = firstSeason?.episodes[0]
     const regularSeasons = seasons.filter(s => s.season !== null && !/^0+$/.test(s.season)).length
     return (
-        <DetailPage onBack={props.onBack} tintImage={posterUrl(serie.poster_file_name, "thumb")}>
+        <DetailPage onBack={props.onBack}>
             <DetailHeader
                 image={posterUrl(serie.poster_file_name)}
                 placeholderIcon={<TvOutlinedIcon />}

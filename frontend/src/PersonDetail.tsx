@@ -40,7 +40,7 @@ export const PersonDetail = (props: {
     if (!person) return <DetailPage onBack={props.onBack}><p className="contentHint">Loading…</p></DetailPage>
 
     return (
-        <DetailPage onBack={props.onBack} tintImage={posterUrl(person.poster_file_name, "thumb")}>
+        <DetailPage onBack={props.onBack}>
             <DetailHeader
                 image={posterUrl(person.poster_file_name)}
                 placeholderIcon={<PersonOutlineRoundedIcon />}

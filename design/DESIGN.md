@@ -102,6 +102,7 @@ System font (SF). Levels used:
 From top to bottom, vertical spacing 120:
 1. **Background:** the movie's poster, full screen, blur 200, blend mode `color`, opacity fades
    0 → 0.6 over 5 s after a 1 s delay. This tints the page with the poster's colors.
+   **Web: not used** (decision, see section 6): neutral gray background, the poster itself is lit instead.
 2. **Header:** portrait poster (500 high, radius 20) on the left. On the right a column, aligned to the
    poster's bottom edge: title (`headline`), subtitle (`caption`, secondary; today the file location),
    flexible space, then actions. Main action: **Play** (`glassProminent`, accent filled).
@@ -176,8 +177,11 @@ never hard-code them in components.
   grids, rows and cast use thumbnails (`posterUrl(name, "thumb")`), full-size posters only in detail headers.
 - **Artwork first.** Labels are hidden in grids and appear on hover/focus. Layouts should celebrate
   posters and stills: big images, little chrome.
-- **Background:** only a subtle gradient. It must never take the focus off the artwork. Detail pages
-  get a faint tint from their poster (like tvOS), nothing louder.
+- **Background:** only a subtle **gray** gradient, everywhere, also on detail pages. **No color** in the background
+  and no tint from the artwork (tvOS's blurred poster background is not used on the web). Allowed alternatives:
+  plain dark gray or a fine noise texture.
+- **Effects go on the artwork, not the page:** the detail poster is "lit": neutral light from the top left, a
+  bright edge, a deep shadow and one light sweep when the page opens. All white/black, never colored.
 - **Artwork keeps its own aspect ratio** (posters can be portrait or landscape) wherever the layout
   allows it: detail headers (fixed height 400 px, natural width), single-row shelves such as
   collections and extras on a detail page (fixed height, natural width), and "Find match" results

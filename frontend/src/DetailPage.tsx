@@ -2,13 +2,12 @@ import React, { useEffect, type ReactNode } from "react"
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded'
 import './DetailPage.css'
 
-/** Frame of a detail page: back button and (like tvOS) a faint tint from the poster behind everything. */
-export const DetailPage = (props: { onBack: () => void, tintImage?: string | null, children: ReactNode }) => {
+/** Frame of a detail page: back button. Neutral background (no tint from the artwork, see design/DESIGN.md). */
+export const DetailPage = (props: { onBack: () => void, children: ReactNode }) => {
     useEffect(() => { window.scrollTo(0, 0) }, [])
 
     return (
         <div className="detailPage">
-            { props.tintImage && <div className="detailTint" aria-hidden="true" style={{ backgroundImage: `url("${props.tintImage}")` }} key={props.tintImage} /> }
             <button className="btn btn-ghost detailBack" onClick={props.onBack}><ChevronLeftRoundedIcon /> Back</button>
             {props.children}
         </div>
