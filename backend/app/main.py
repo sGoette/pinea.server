@@ -16,6 +16,7 @@ from app.api.collections import router as collections_router
 from app.api.library import router as library_router
 from app.api.libraries import router as libraries_router
 from app.api.person import router as person_router
+from app.api.people import router as people_router
 from app.api.poster import router as poster_router
 from app.api.filesystem import router as filesystem_router
 
@@ -83,6 +84,7 @@ app.include_router(collections_router)
 app.include_router(library_router)
 app.include_router(libraries_router)
 app.include_router(person_router)
+app.include_router(people_router)
 app.include_router(poster_router)
 app.include_router(filesystem_router)
 

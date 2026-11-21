@@ -12,3 +12,8 @@ export type MoviePerson = Person & {
     character: string | null
     sort_order: number | null
 }
+
+/** A person of a library (GET /api/people/{library_id}), sorted by name. */
+export type LibraryPerson = Person & {
+    movie_count: number
+}

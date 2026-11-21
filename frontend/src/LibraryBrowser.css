@@ -140,6 +140,10 @@
     margin-bottom: 16px;
 }
 
+.contentHeader .sortControl {
+    margin-left: auto;
+}
+
 .contentCount {
     color: var(--text-faint);
     font-size: 13px;

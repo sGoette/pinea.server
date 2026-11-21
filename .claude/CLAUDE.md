@@ -167,6 +167,7 @@ opens its own `aiosqlite.connect(DB_PATH)` without it.
 | GET | `/api/serie/{id}/episodes` | episodes ordered by season, episode |
 | GET | `/api/collections/{library_id}` | collections + `movie_count` |
 | GET | `/api/person/{id}` | one person |
+| GET | `/api/people/{library_id}` | people of a library with `movie_count` (extras don't count), sorted by name |
 | GET | `/api/poster/{file_name}?size=thumb` | poster image from POSTER_DIR. `size=thumb`: max 800×600, created on demand in `data/posters/thumbs/` (cleaned up with the posters). Cached as immutable |
 | GET | `/api/filesystem/list?current_directory=` | subfolders inside MEDIA_ROOT_FOLDER (folder picker) |
 | POST | `/api/scan/start?library_id=&ignore_existing_metadata=&movie_id=&force_cleanup=&reset_metadata=` | queue a scan job. `reset_metadata` (needs `library_id`): rebuild, see Scanning |
@@ -183,7 +184,7 @@ The tvOS app depends on these shapes. Treat response models as a public contract
 
 - **Design rules: [`design/DESIGN.md`](../design/DESIGN.md). Read it before any UI work.** The tvOS app is the design master;
   update DESIGN.md when a design decision is made. Logo: `design/logo.svg`.
-- One page (`LibraryBrowser`). State lives in the URL query: `library`, `view=all` (default: collections),
+- One page (`LibraryBrowser`). State lives in the URL query: `library`, `view=all|people` (default: collections), `sort=movies` (people view, default: name),
   `collection`, `movie` (detail page), `person` (person page), `serie` + `season` (SERIES libraries), `play`. Cards open the detail page; the grid stays
   mounted (hidden) behind detail pages so its scroll position survives. Reload keeps the place and the browser's back button works (it also closes the player).
 - Dark theme only. Colors, radii and spacing are CSS variables in `styles.css` (the web copy of the tvOS assets, see DESIGN.md). Use them instead of hard-coded values.

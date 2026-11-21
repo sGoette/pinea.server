@@ -14,7 +14,8 @@ import { NotificationType } from "./types/NotificationType"
 import { LibraryType, type Library } from "./types/Library"
 import type { Movie } from "./types/Movie"
 import type { Collection } from "./types/Collection"
-import { MovieCard, CollectionCard, SerieCard } from "./MediaCard"
+import { MovieCard, CollectionCard, SerieCard, LibraryPersonCard } from "./MediaCard"
+import type { LibraryPerson } from "./types/Person"
 import type { Serie } from "./types/Serie"
 import { PlayerOverlay } from "./PlayerOverlay"
 import { LibraryDialog } from "./LibraryDialog"
@@ -31,7 +32,8 @@ import { gridLayoutFor } from "./gridLayout"
 import './LibraryBrowser.css'
 import logoUrl from '../../design/logo.svg'
 
-type View = "collections" | "all"
+type View = "collections" | "all" | "people"
+type PeopleSort = "name" | "movies"
 
 // Stable helpers for JustifiedGrid (no new functions on every render)
 const movieKey = (movie: Movie) => movie.id
@@ -54,6 +56,7 @@ export const LibraryBrowser = () => {
     const [ collections, setCollections ] = useState<Collection[]>([])
     const [ movies, setMovies ] = useState<Movie[]>([])
     const [ series, setSeries ] = useState<Serie[]>([])
+    const [ people, setPeople ] = useState<LibraryPerson[]>([])
     const [ loading, setLoading ] = useState<boolean>(false)
     const [ search, setSearch ] = useState<string>("")
     const [ dialog, setDialog ] = useState<OpenDialog>(null)
@@ -63,7 +66,9 @@ export const LibraryBrowser = () => {
 
     // --- State in the URL: reload keeps the place, back button works ---
     const libraryId = Number(params.get("library")) || null
-    const view: View = params.get("view") === "all" ? "all" : "collections"
+    const viewParam = params.get("view")
+    const view: View = viewParam === "all" || viewParam === "people" ? viewParam : "collections"
+    const peopleSort: PeopleSort = params.get("sort") === "movies" ? "movies" : "name"
     const collectionId = Number(params.get("collection")) || null
     const playId = Number(params.get("play")) || null
     const movieId = Number(params.get("movie")) || null      // detail page
@@ -102,6 +107,7 @@ export const LibraryBrowser = () => {
             setMovies([])
             setCollections([])
             setSeries([])
+            setPeople([])
             return
         }
         try {
@@ -115,6 +121,9 @@ export const LibraryBrowser = () => {
                     setSeries(seriesResponse.data)
                     setMovies(moviesResponse.data.filter(movie => movie.is_episode_of_serie_id === null))
                 }
+            } else if (view === "people") {
+                const peopleResponse = await axios.get<LibraryPerson[]>(`/api/people/${libraryId}`)
+                if (isCurrent()) setPeople(peopleResponse.data)
             } else if (view === "collections") {
                 const collectionsResponse = await axios.get<Collection[]>(`/api/collections/${libraryId}`)
                 if (isCurrent()) setCollections(collectionsResponse.data)
@@ -147,6 +156,7 @@ export const LibraryBrowser = () => {
         setMovies([])
         setCollections([])
         setSeries([])
+        setPeople([])
         setSearch("")
         setLoading(true)
         fetchContent().finally(() => setLoading(false))
@@ -199,12 +209,19 @@ export const LibraryBrowser = () => {
     const visibleSeries = useMemo(
         () => query ? series.filter(s => s.title.toLocaleLowerCase().includes(query)) : series,
         [series, query])
-    const itemCount = isSeriesLibrary ? series.length + movies.length : showCollections ? collections.length : movies.length
-    const visibleCount = isSeriesLibrary ? visibleSeries.length + visibleMovies.length : showCollections ? visibleCollections.length : visibleMovies.length
+    const showPeople = view === "people" && !isSeriesLibrary
+    const visiblePeople = useMemo(() => {
+        const filtered = query ? people.filter(p => p.name.toLocaleLowerCase().includes(query)) : people
+        // The server sorts by name
+        return peopleSort === "movies" ? [...filtered].sort((a, b) => b.movie_count - a.movie_count) : filtered
+    }, [people, query, peopleSort])
+    const itemCount = isSeriesLibrary ? series.length + movies.length : showPeople ? people.length : showCollections ? collections.length : movies.length
+    const visibleCount = isSeriesLibrary ? visibleSeries.length + visibleMovies.length : showPeople ? visiblePeople.length : showCollections ? visibleCollections.length : visibleMovies.length
 
     // --- Actions ---
     const selectLibrary = (id: number) => updateParams({ library: id, collection: null, movie: null, person: null, serie: null, season: null })
-    const setView = (newView: View) => updateParams({ view: newView === "all" ? "all" : null, collection: null })
+    const setView = (newView: View) => updateParams({ view: newView === "collections" ? null : newView, collection: null })
+    const setPeopleSort = (sort: PeopleSort) => updateParams({ sort: sort === "name" ? null : sort }, true)
     const openCollection = (collection: Collection) => updateParams({ view: null, collection: collection.id, movie: null, person: null, serie: null, season: null })
     const closeCollection = () => updateParams({ collection: null })
 
@@ -298,6 +315,14 @@ export const LibraryBrowser = () => {
                     </div>
                 )
             }
+            if (showPeople) {
+                return (
+                    <div className="emptyState">
+                        <h2>No people</h2>
+                        <p>People come from folder configs or the scraper.</p>
+                    </div>
+                )
+            }
             if (showCollections && !isSeriesLibrary) {
                 return (
                     <div className="emptyState">
@@ -337,6 +362,14 @@ export const LibraryBrowser = () => {
             </>
         }
 
+        if (showPeople) {
+            return (
+                <div className="personGrid">
+                    { visiblePeople.map(person => <LibraryPersonCard key={person.id} person={person} onOpen={openPerson} />) }
+                </div>
+            )
+        }
+
         if (layout === "justified") {
             const defaultRatio = landscape ? 16 / 9 : 0.6748
             return showCollections
@@ -367,7 +400,7 @@ export const LibraryBrowser = () => {
         )
     }
 
-    const countNoun: [string, string] = isSeriesLibrary ? ["series", "series"] : showCollections ? ["collection", "collections"] : ["title", "titles"]
+    const countNoun: [string, string] = isSeriesLibrary ? ["series", "series"] : showPeople ? ["person", "people"] : showCollections ? ["collection", "collections"] : ["title", "titles"]
     const countValue = isSeriesLibrary ? series.length : itemCount
     const visibleCountValue = isSeriesLibrary ? visibleSeries.length : visibleCount
     const countLabel = query
@@ -397,6 +430,7 @@ export const LibraryBrowser = () => {
                             <div className="segmented" role="tablist" aria-label="View">
                                 <button role="tab" aria-selected={view === "collections"} className={view === "collections" ? "active" : ""} onClick={() => setView("collections")}>Collections</button>
                                 <button role="tab" aria-selected={view === "all"} className={view === "all" ? "active" : ""} onClick={() => setView("all")}>All</button>
+                                <button role="tab" aria-selected={view === "people"} className={view === "people" ? "active" : ""} onClick={() => setView("people")}>People</button>
                             </div>
                             }
                             <label className="searchBox">
@@ -472,6 +506,13 @@ export const LibraryBrowser = () => {
                                     <span className="contentCount">{countLabel}</span>
                                 </nav>
                                 : <span className="contentCount">{loading && itemCount === 0 ? "" : countLabel}</span>
+                            }
+                            {
+                                showPeople && people.length > 0 &&
+                                <div className="segmented sortControl" role="radiogroup" aria-label="Sort people">
+                                    <button role="radio" aria-checked={peopleSort === "name"} className={peopleSort === "name" ? "active" : ""} onClick={() => setPeopleSort("name")}>Name</button>
+                                    <button role="radio" aria-checked={peopleSort === "movies"} className={peopleSort === "movies" ? "active" : ""} onClick={() => setPeopleSort("movies")}>Most titles</button>
+                                </div>
                             }
                         </div>
                     )

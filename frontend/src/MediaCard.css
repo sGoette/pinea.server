@@ -221,6 +221,14 @@
     }
 }
 
+/* People view of a library: the cast cards in a grid */
+.personGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    justify-items: center;
+    gap: 28px 16px;
+}
+
 /* Cast: circle at rest, rounded square on hover (like tvOS focus). Name + character always visible. */
 .personCard {
     display: flex;

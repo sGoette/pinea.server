@@ -5,7 +5,7 @@ import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined'
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded'
 import type { Movie } from "./types/Movie"
 import type { Collection } from "./types/Collection"
-import type { MoviePerson } from "./types/Person"
+import type { LibraryPerson, MoviePerson, Person } from "./types/Person"
 import type { Serie } from "./types/Serie"
 import TvOutlinedIcon from '@mui/icons-material/TvOutlined'
 import { formatDuration, formatYear, pluralize, posterUrl } from "./format"
@@ -119,17 +119,30 @@ export const SeasonCard = (props: { title: string, episodeCount: number, posterF
 )
 
 /** Cast card: circular photo, name and character are always visible (the role is the information). */
+/** Cast card: name + character (or "Director"). */
 export const PersonCard = (props: { person: MoviePerson, onOpen: (person: MoviePerson) => void }) => {
     const { person } = props
-    const image = posterUrl(person.poster_file_name, "thumb")
     const role = person.character ?? (person.role === "DIRECTOR" ? "Director" : null)
+    return <PersonCardBase person={person} detail={role} title={role ? `${person.name} as ${role}` : person.name} onOpen={() => props.onOpen(person)} />
+}
+
+/** People view of a library: name + number of titles. */
+export const LibraryPersonCard = (props: { person: LibraryPerson, onOpen: (person: LibraryPerson) => void }) => {
+    const { person } = props
+    const count = pluralize(person.movie_count, "title", "titles")
+    return <PersonCardBase person={person} detail={count} title={`${person.name} · ${count}`} onOpen={() => props.onOpen(person)} />
+}
+
+const PersonCardBase = (props: { person: Person, detail: string | null, title: string, onOpen: () => void }) => {
+    const { person } = props
+    const image = posterUrl(person.poster_file_name, "thumb")
     return (
-        <button className="personCard" onClick={() => props.onOpen(person)} title={role ? `${person.name} as ${role}` : person.name}>
+        <button className="personCard" onClick={props.onOpen} title={props.title}>
             <span className="personPhoto">
                 { image ? <img src={image} alt="" loading="lazy" decoding="async" /> : <span className="artPlaceholder"><PersonOutlineRoundedIcon /></span> }
             </span>
             <span className="personName">{person.name}</span>
-            { role && <span className="personRole">{role}</span> }
+            { props.detail && <span className="personRole">{props.detail}</span> }
         </button>
     )
 }
