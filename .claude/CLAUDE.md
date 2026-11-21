@@ -223,8 +223,8 @@ The tvOS app depends on these shapes. Treat response models as a public contract
 6. **Scan one config** (`config_folder`, "Folder configs" in the library dialog, `scan_library(config_folder=)`): walks only
    the files whose closest `__pinea.json` is that one (folders with their own `__pinea.json` are skipped) and fetches
    their metadata again. For a config above the library folder that means the whole library, unless one sits in between.
-7. After every job: `cleanup_orphaned_movies` (deletes movies whose file is gone, with safety guards, see
-   gotchas), then orphaned collections, then people without movies, then poster files not referenced in the DB.
+7. After every job (also when the scan failed halfway, each cleanup on its own): `cleanup_orphaned_movies` (deletes movies whose file is gone, with safety guards, see
+   gotchas), then collections without (non-extra) movies, then people without movies, then poster files not referenced in the DB.
 
 ## Deployment
 

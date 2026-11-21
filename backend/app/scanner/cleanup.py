@@ -2,7 +2,6 @@ import os
 import aiosqlite
 from pathlib import Path
 from app.config import DB_PATH, GET_MEDIA_ROOT_FOLDER, POSTER_DIR, POSTER_THUMB_DIR
-from app.models.collection import Collection
 from app.models.library import Library
 
 from app.api.websocket_manager import ws_manager
@@ -119,22 +118,24 @@ async def cleanup_orphaned_movies(force: bool = False):
     if deleted_any:
         await ws_manager.broadcast(Notification(type=NOTIFICATION_TYPE.MOVIES_UPDATED))
 
-async def cleanup_orphaned_collections ():
+async def cleanup_orphaned_collections():
+    """Collections without movies. Extras don't count (the UI's movie_count doesn't count them either)."""
     async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("SELECT * FROM collections") as collection_cursor:
-            collection_rows = await collection_cursor.fetchall()
+        # Links of deleted movies (most connections run without foreign_keys=ON, so no cascade)
+        await db.execute("DELETE FROM movies__collections WHERE movie_id NOT IN (SELECT id FROM movies)")
+        cursor = await db.execute("""
+DELETE FROM collections WHERE id NOT IN (
+    SELECT mc.collection_id
+    FROM movies__collections mc
+    JOIN movies m ON m.id = mc.movie_id
+    WHERE m.is_extra_of_movie_id IS NULL
+)""")
+        removed = cursor.rowcount
+        await db.execute("DELETE FROM movies__collections WHERE collection_id NOT IN (SELECT id FROM collections)")
+        await db.commit()
 
-            collections = [Collection(**dict(row)) for row in collection_rows]
-
-            for collection in collections:
-                async with db.execute("SELECT * FROM movies__collections WHERE collection_id = ?", (collection.id,)) as movie__collection_cursor:
-                    movie__collection_row = await movie__collection_cursor.fetchone()
-
-                if movie__collection_row is None:
-                    await db.execute("DELETE FROM collections WHERE id = ?", (collection.id,))
-                    await db.commit()
-
+    if removed:
+        log.info(f"[Cleanup] Removed {removed} collections without movies")
         await ws_manager.broadcast(Notification(type=NOTIFICATION_TYPE.COLLECTIONS_UPDATED))
 
 async def cleanup_orphaned_people():

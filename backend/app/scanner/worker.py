@@ -34,27 +34,29 @@ class ScannerWorker:
         asyncio.set_event_loop(self.loop)
         self.loop.run_until_complete(self._worker_loop())
 
+    async def _run_cleanup(self, name: str, cleanup):
+        """One failing cleanup must not skip the others."""
+        try:
+            await cleanup()
+        except Exception:
+            log.exception(f"Cleanup of {name} failed: ")
+
     async def _worker_loop(self):
         while True:
             job = await self.queue.get()
             self.current_job = job
             try:
-                # Scan all libraries for new movies
-                await scan_libraries(job)
+                try:
+                    await scan_libraries(job)
+                except Exception:
+                    log.exception("Scanner Error: ")
 
-                #Cleanup orphaned movies in database -> Movies where the file is missing
-                await cleanup_orphaned_movies(force=job.force_cleanup)
-
-                #Cleanup orphaned collections in database -> Collections with 0 movies
-                await cleanup_orphaned_collections()
-
-                #Cleanup orphaned people in database -> People with 0 movies
-                await cleanup_orphaned_people()
-                
-                #Cleanup orphaned posters after scanning
-                await cleanup_orphaned_posters()
-            except Exception:
-                log.exception(f"Scanner Error: ")
+                # Cleanups run even when the scan failed halfway. They don't depend on it: the movie cleanup
+                # checks the files itself and has its own guards (missing mount, too many files gone at once).
+                await self._run_cleanup("orphaned movies", lambda: cleanup_orphaned_movies(force=job.force_cleanup))
+                await self._run_cleanup("orphaned collections", cleanup_orphaned_collections)    # collections without movies
+                await self._run_cleanup("orphaned people", cleanup_orphaned_people)              # people without movies
+                await self._run_cleanup("orphaned posters", cleanup_orphaned_posters)            # last: needs the final DB state
             finally:
                 self.current_job = None
                 with self._lock:
