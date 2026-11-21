@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request
 from pathlib import Path
 import asyncio
+import os
+import anyio
 from fastapi.responses import Response, StreamingResponse
 import aiosqlite
 from os import path
@@ -34,7 +36,20 @@ async def get_movie(movie_id: int):
     
     return dict(movie)
 
-CHUNK_SIZE = 1024 * 1024 * 10  # 10 MB per chunk
+# Small chunks: the first bytes go out quickly (AVPlayer opens a new range request for every seek)
+# and TCP backpressure from a full player buffer stops the reading early.
+CHUNK_SIZE = 1024 * 1024
+
+# The stream URL has no file extension, so AVPlayer goes by the Content-Type
+VIDEO_MEDIA_TYPES = {
+    ".mp4": "video/mp4",
+    ".m4v": "video/x-m4v",
+    ".mov": "video/quicktime",
+    ".mkv": "video/x-matroska",
+    ".avi": "video/x-msvideo",
+    ".wmv": "video/x-ms-wmv",
+    ".flv": "video/x-flv",
+}
 
 RANGE_RE = re.compile(r"^bytes=(\d*)-(\d*)$")
 
@@ -70,6 +85,55 @@ def parse_range(header: str, file_size: int) -> Optional[tuple[int, int]]:
     end = int(end_str) if end_str else file_size - 1
     return start, min(end, file_size - 1)  # an end past the file means "to the end"
 
+class FileRangeResponse(StreamingResponse):
+    """Sends bytes start..end (inclusive) of a file.
+
+    Starlette's StreamingResponse with a sync generator never closes the generator when the client
+    disconnects, so every cancelled request (AVPlayer cancels one on every seek) leaked an open file.
+    Here the file is closed in `finally`. The next chunk is read in a thread while the current one is
+    sent, so a slow disk / NFS read and the network send overlap instead of taking turns.
+    """
+    def __init__(self, file_path: str, start: int, end: int, status_code: int, headers: dict[str, str], media_type: str):
+        super().__init__(content=iter(()), status_code=status_code, headers=headers, media_type=media_type)
+        self.file_path = file_path
+        self.start = start
+        self.end = end
+
+    async def stream_response(self, send) -> None:
+        await send({ "type": "http.response.start", "status": self.status_code, "headers": self.raw_headers })
+
+        file = await anyio.to_thread.run_sync(open, self.file_path, "rb")
+        fd = file.fileno()
+        position = self.start
+        remaining = self.end - self.start + 1
+
+        def read_next() -> "asyncio.Future[bytes]":
+            return asyncio.ensure_future(anyio.to_thread.run_sync(os.pread, fd, min(CHUNK_SIZE, remaining), position))
+
+        pending: Optional[asyncio.Future[bytes]] = read_next() if remaining > 0 else None
+        try:
+            while pending is not None:
+                data = await pending
+                pending = None
+                if not data:
+                    break  # file got shorter
+                position += len(data)
+                remaining -= len(data)
+                if remaining > 0:
+                    pending = read_next()
+                await send({ "type": "http.response.body", "body": data, "more_body": True })
+            await send({ "type": "http.response.body", "body": b"", "more_body": False })
+        finally:
+            if pending is not None and not pending.done():
+                # A read is still running in its thread: close the file once it's done
+                def close_after_read(future: asyncio.Future) -> None:
+                    if not future.cancelled():
+                        future.exception()  # retrieve it, no "exception was never retrieved" warning
+                    file.close()
+                pending.add_done_callback(close_after_read)
+            else:
+                file.close()
+
 @router.get("/{movie_id}/stream")
 async def stream_movie(request: Request, movie_id: int):
     async with aiosqlite.connect(DB_PATH) as db:
@@ -82,10 +146,11 @@ async def stream_movie(request: Request, movie_id: int):
         raise HTTPException(status_code=404, detail="Movie not found")
     
     file_path = path.join(MEDIA_ROOT_FOLDER, movie["file_location"])
-    if not path.exists(file_path):
+    if not path.isfile(file_path):
         raise HTTPException(status_code=404, detail="File not found on disk")
     
     file_size = path.getsize(file_path)
+    media_type = VIDEO_MEDIA_TYPES.get(Path(file_path).suffix.lower(), "video/mp4")
     headers = { "Accept-Ranges": "bytes" }
 
     byte_range: Optional[tuple[int, int]] = None
@@ -98,38 +163,12 @@ async def stream_movie(request: Request, movie_id: int):
 
     if byte_range:
         start, end = byte_range
-        length = end - start + 1
+        headers.update({ "Content-Range": f"bytes {start}-{end}/{file_size}", "Content-Length": str(end - start + 1) })
+        return FileRangeResponse(file_path, start, end, status_code=206, headers=headers, media_type=media_type)
 
-        def iter_file():
-            with open(file_path, "rb") as f:
-                f.seek(start)
-                remaining = length
-                while remaining > 0:
-                    chunk_size = min(CHUNK_SIZE, remaining)
-                    data = f.read(chunk_size)
-                    if not data:
-                        break
-                    yield data
-                    remaining -= len(data)
-
-        headers.update({
-            "Content-Range": f"bytes {start}-{end}/{file_size}",
-            "Content-Length": str(length)
-        })
-        return StreamingResponse(iter_file(), status_code=206, headers=headers, media_type="video/mp4")
-    
-    else:
-        # No (usable) Range header, return entire file
-        def iter_file_full():
-            with open(file_path, "rb") as f:
-                while True:
-                    data = f.read(CHUNK_SIZE)
-                    if not data:
-                        break
-                    yield data
-
-        headers.update({ "Content-Length": str(file_size) })
-        return StreamingResponse(iter_file_full(), headers=headers, media_type="video/mp4")
+    # No (usable) Range header: the whole file
+    headers.update({ "Content-Length": str(file_size) })
+    return FileRangeResponse(file_path, 0, file_size - 1, status_code=200, headers=headers, media_type=media_type)
 
 
 @router.get("/{movie_id}/people", response_model=List[MoviePerson])

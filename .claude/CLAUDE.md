@@ -157,7 +157,7 @@ opens its own `aiosqlite.connect(DB_PATH)` without it.
 | GET | `/api/movies/collection/{collection_id}` | movies in a collection |
 | GET | `/api/movies/person/{person_id}` | movies of a person |
 | GET | `/api/movie/{id}` | one movie |
-| GET | `/api/movie/{id}/stream` | file streaming with HTTP Range support (always `video/mp4`) |
+| GET | `/api/movie/{id}/stream` | file streaming with HTTP Range support (Content-Type from the file extension) |
 | GET | `/api/movie/{id}/people` | people of a movie + `character`, `sort_order`; sorted by sort_order (NULLs last), then name |
 | GET | `/api/movie/{id}/search?query=` | all hits of the closest scraper (`SearchResult`: id, name, original_name, release_date, poster_url, overview). 409 = no scraper, 502 = scraper error |
 | POST | `/api/movie/{id}/match` | body `SearchResult`: queue a job that applies this hit (not stored) |
@@ -296,7 +296,10 @@ The tvOS app depends on these shapes. Treat response models as a public contract
   the movie has no poster or the file is missing in `data/posters/`.
 - Streaming (`api/movie.py`, `parse_range`): single byte ranges incl. suffix ranges, end clamped to the
   file size, 416 for ranges starting past the end, malformed/multi-range headers are ignored (200 + whole
-  file). The tvOS app (AVPlayer) depends on this endpoint, so test playback on tvOS after changes.
+  file). `FileRangeResponse` sends 1 MB chunks with one chunk read ahead and closes the file in `finally`.
+  Don't go back to `StreamingResponse` with a sync generator: it never closes the file when the client
+  disconnects (AVPlayer cancels a request on every seek), and big chunks were ~15× slower. Content-Type
+  comes from the file extension (the URL has none, AVPlayer goes by it). The tvOS app (AVPlayer) depends on this endpoint, so test playback on tvOS after changes.
 - Bonjour (`services/bonjour.py`): the tvOS app resolves the service and connects to the advertised
   address. Rules: advertise the default-route interface's IPv4 (never 127.x or 169.254.x, wait up to
   60 s for the network at startup), run zeroconf only on that interface (`AsyncZeroconf(interfaces=[ip])`,
