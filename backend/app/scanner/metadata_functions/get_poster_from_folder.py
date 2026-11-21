@@ -8,13 +8,18 @@ from app.config import POSTER_DIR
 import logging
 log = logging.getLogger(__name__)
 
-def get_poster_from_folder(folder_path: Path, candidate_names:list[str]) -> Optional[str]:
-    IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
-    for path in Path(folder_path).iterdir():
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
+
+def find_image_in_folder(folder_path: Path, candidate_names: list[str]) -> Optional[Path]:
+    """First image in the folder whose name (without extension, any case) is one of candidate_names."""
+    for path in sorted(Path(folder_path).iterdir()):
         if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS and path.stem.lower() in candidate_names:
-            return get_poster_from_file_name(path)
-    
+            return path
     return None
+
+def get_poster_from_folder(folder_path: Path, candidate_names:list[str]) -> Optional[str]:
+    image = find_image_in_folder(folder_path, candidate_names)
+    return get_poster_from_file_name(image) if image else None
 
 def get_poster_from_file_name(file_name: Path) -> Optional[str]:
     log.warning(file_name)

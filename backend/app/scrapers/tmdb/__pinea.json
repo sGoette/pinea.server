@@ -3,5 +3,6 @@
     "subfoldersArePeople": false,
     "folderPeople": [],
     "useScraper": true,
-    "potential_collections": []
+    "potential_collections": [],
+    "folder_is_collection": false
 }

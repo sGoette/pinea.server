@@ -525,6 +525,7 @@ export const LibraryBrowser = () => {
 
             { dialog?.type === "library" && <LibraryDialog libraryId={dialog.libraryId} onClose={closeDialog} onSaved={id => { fetchLibraries(); if (id) selectLibrary(id) }}
                 onRebuild={id => startScan({ library_id: id, reset_metadata: true }).then(() => toast("Rebuilding metadata…"))}
+                onScanConfig={(id, folder) => startScan({ library_id: id, config_folder: folder }).then(() => toast(`Scanning the files of ${folder || "the media root"}…`))}
                 scanRunning={scanStatus.running} /> }
             { dialog?.type === "match" && <MatchDialog movie={dialog.movie} onClose={closeDialog} onMatched={refreshScanStatus} /> }
             { dialog?.type === "settings" && <SettingsDialog onClose={closeDialog} scanAll={() => startScan({}).then(() => toast("Scanning all libraries…"))} scanRunning={scanStatus.running} /> }

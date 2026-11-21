@@ -44,4 +44,7 @@ async def scan_libraries(job: ScanJob):
         for library in libraries:
             if job.reset_metadata and not await reset_library_metadata(library):
                 continue # folder missing: neither reset nor scan
+            if job.config_folder is not None:
+                await scan_library(library=library, ignore_existing_metadata=True, config_folder=job.config_folder)
+                continue
             await scan_library(library=library, ignore_existing_metadata=job.ignore_existing_metadata or job.reset_metadata)

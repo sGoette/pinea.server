@@ -11,3 +11,4 @@ class ScanJob:
     force_cleanup: bool = False # bypass the "too many movies missing at once" safety check
     reset_metadata: bool = False # with library_id: forget all metadata of the library first, then scan (rebuild)
     search_result: Optional[SearchResult] = None # with movie_id: use this scraper hit instead of searching (manual match)
+    config_folder: Optional[str] = None # with library_id: only the files whose closest __pinea.json is in this folder (relative to MEDIA_ROOT_FOLDER), metadata fetched again

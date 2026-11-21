@@ -30,7 +30,7 @@ export const useScanStatus = () => {
         return () => { if (timer.current) window.clearTimeout(timer.current) }
     }, [poll])
 
-    const startScan = useCallback((params: { library_id?: number, movie_id?: number, reset_metadata?: boolean }) => {
+    const startScan = useCallback((params: { library_id?: number, movie_id?: number, reset_metadata?: boolean, config_folder?: string }) => {
         setStatus(s => ({ ...s, running: true, pending_jobs: s.pending_jobs + 1 }))
         return axios.post('/api/scan/start', null, { params }).then(() => poll())
     }, [poll])

@@ -17,16 +17,13 @@ from typing import Optional
 from app.models.library import Library
 from app.models.metadata import SearchResult
 from app.models.folder_collection_config import FolderCollectionConfig_Path
-from app.scanner.metadata_functions.folder_collection_config import find_folder_collection_config
-
-SCRAPER_FILE_NAME = "__pinea.py"
-
-def closest_scraper_config(configs: list[FolderCollectionConfig_Path]) -> Optional[FolderCollectionConfig_Path]:
-    """configs are ordered from the file's folder upwards, so the first one with useScraper is the closest."""
-    return next((config for config in configs if config.data.useScraper), None)
+from app.scanner.metadata_functions.folder_collection_config import find_closest_config, SCRAPER_FILE_NAME
 
 async def find_scraper_config(absolute_path: Path) -> Optional[FolderCollectionConfig_Path]:
-    return closest_scraper_config(await find_folder_collection_config(absolute_path))
+    """The closest __pinea.json decides: when it doesn't set useScraper, the file has no scraper
+    (a scraper further up doesn't count)."""
+    config = await find_closest_config(absolute_path)
+    return config if config and config.data.useScraper else None
 
 def load_scraper(folder: Path) -> ModuleType:
     scraper_file = folder / SCRAPER_FILE_NAME

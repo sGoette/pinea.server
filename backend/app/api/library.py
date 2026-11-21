@@ -1,7 +1,12 @@
+import asyncio
+from pathlib import Path
+from typing import List
 from fastapi import APIRouter, HTTPException, Request
 import aiosqlite
 from app.scanner.jobs import ScanJob
-from app.config import DB_PATH
+from app.config import DB_PATH, GET_MEDIA_ROOT_FOLDER
+from app.models.folder_collection_config import LibraryFolderConfig
+from app.scanner.metadata_functions.folder_collection_config import list_library_configs
 from app.models.library import Library, LibraryCreate
 from app.models.notification import Notification, NOTIFICATION_TYPE
 from app.api.websocket_manager import ws_manager
@@ -20,6 +25,16 @@ async def get_library(library_id: int):
         raise HTTPException(status_code=404, detail="Library not found")
 
     return dict(library)
+
+@router.get("/{library_id}/configs", response_model=List[LibraryFolderConfig])
+async def get_library_configs(library_id: int):
+    """The __pinea.json files that decide how the files of this library are scanned, sorted by folder."""
+    library = await get_library(library_id)
+    media_root = Path(await GET_MEDIA_ROOT_FOLDER()).resolve()
+    library_path = (media_root / library["media_folder"]).resolve()
+    if not library_path.is_dir():
+        return []
+    return await asyncio.to_thread(list_library_configs, media_root, library_path)
 
 @router.put("", response_model=Library)
 async def create_library(request: Request, library: LibraryCreate):

@@ -149,6 +149,7 @@ opens its own `aiosqlite.connect(DB_PATH)` without it.
 | POST | `/api/settings` | body `[Setting]`, updates values by key |
 | GET | `/api/libraries` | all libraries |
 | GET | `/api/library/{id}` | one library |
+| GET | `/api/library/{id}/configs` | the `__pinea.json` files that decide about this library's files (`LibraryFolderConfig`: folder relative to MEDIA_ROOT_FOLDER, `above_library`, parsed config or `error`, `has_scraper_file`) |
 | PUT | `/api/library` | create (`LibraryCreate`), queues a scan |
 | POST | `/api/library` | update (`Library`) |
 | DELETE | `/api/library/{id}` | delete (cascade), queues a scan (for cleanup) |
@@ -170,7 +171,7 @@ opens its own `aiosqlite.connect(DB_PATH)` without it.
 | GET | `/api/people/{library_id}` | people of a library with `movie_count` (extras don't count), sorted by name |
 | GET | `/api/poster/{file_name}?size=thumb` | poster image from POSTER_DIR. `size=thumb`: max 800×600, created on demand in `data/posters/thumbs/` (cleaned up with the posters). Cached as immutable |
 | GET | `/api/filesystem/list?current_directory=` | subfolders inside MEDIA_ROOT_FOLDER (folder picker) |
-| POST | `/api/scan/start?library_id=&ignore_existing_metadata=&movie_id=&force_cleanup=&reset_metadata=` | queue a scan job. `reset_metadata` (needs `library_id`): rebuild, see Scanning |
+| POST | `/api/scan/start?library_id=&ignore_existing_metadata=&movie_id=&force_cleanup=&reset_metadata=&config_folder=` | queue a scan job. `reset_metadata` (needs `library_id`): rebuild, see Scanning. `config_folder` (needs `library_id`): only the files of that `__pinea.json`, see Scanning |
 | GET | `/api/scan/status` | `{running, pending_jobs, library_id, movie_id}` of the scanner worker |
 | GET | `/api/update/status` | installed/latest version, update state, log, last result |
 | POST | `/api/update/check` | fetch `version.json` of the `main-build` release |
@@ -199,9 +200,11 @@ The tvOS app depends on these shapes. Treat response models as a public contract
 3. New files are inserted (title = file stem title-cased, ffprobe data, `added_date`).
 4. If `metadata_last_updated` is NULL (or `ignore_existing_metadata`), `fetch_movie_metadata` runs:
    - Extras: file stem ending in `-trailer|-behindthescenes|-makingoff` is linked to the main movie.
-   - Walks up from the file's folder collecting every `__pinea.json` (`FolderCollectionConfig`):
-     `subfoldersAreCollections`, `subfoldersArePeople`, `folderPeople`, `useScraper`, `potential_collections`.
-   - `useScraper`: only the **closest** config with `useScraper` counts (`scanner/scraper.py`). Imports
+   - **Only the closest `__pinea.json`** above the file (`find_closest_config`, never above MEDIA_ROOT_FOLDER) decides
+     how it is scanned. Configs further up add nothing, also no scraper. Keys (`FolderCollectionConfig`, all optional):
+     `subfoldersAreCollections`, `subfoldersArePeople`, `folderPeople`, `useScraper`, `potential_collections`,
+     `folder_is_collection` (the config's own folder becomes a collection, poster = image `collection.*` next to the json).
+   - `useScraper` (`scanner/scraper.py`): the `__pinea.py` next to that config is only the metadata helper. Imports
      `__pinea.py` **from that media folder** and calls
      `search(absolute_path=, library=, query=None) -> [SearchResult]` (best first; `query` only for manual
      searches, scrapers without that parameter still work) and
@@ -217,7 +220,10 @@ The tvOS app depends on these shapes. Treat response models as a public contract
    metadata of the library is forgotten (titles back to the file name, posters, dates, extra/episode links, people,
    collections, series). Movie rows and file data stay. Skipped (no reset, no scan) when the library folder is
    missing or empty.
-6. After every job: `cleanup_orphaned_movies` (deletes movies whose file is gone, with safety guards, see
+6. **Scan one config** (`config_folder`, "Folder configs" in the library dialog, `scan_library(config_folder=)`): walks only
+   the files whose closest `__pinea.json` is that one (folders with their own `__pinea.json` are skipped) and fetches
+   their metadata again. For a config above the library folder that means the whole library, unless one sits in between.
+7. After every job: `cleanup_orphaned_movies` (deletes movies whose file is gone, with safety guards, see
    gotchas), then orphaned collections, then people without movies, then poster files not referenced in the DB.
 
 ## Deployment
@@ -281,8 +287,6 @@ The tvOS app depends on these shapes. Treat response models as a public contract
   `force_cleanup=true`. Don't weaken this: the original behaviour wiped the whole DB on a missing mount.
 - `MEDIA_ROOT_FOLDER` must be the same absolute path in the DB as on the host. All other paths are relative.
 - `GET_MEDIA_ROOT_FOLDER`/`GET_SERVER_NAME` call `exit(1)` when the setting row is missing.
-- `find_folder_collection_config` compares a `Path` with the `str` MEDIA_ROOT_FOLDER, which is never equal,
-  so it keeps walking up to `/`.
 - Names from files/folders go through `scanner/text.py:smart_title()`, not `str.title()` (which breaks
   "Don't" → "Don'T"). Collection and people lookups by name use `COLLATE NOCASE` so older entries
   with different casing still match.

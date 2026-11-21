@@ -13,9 +13,10 @@ from app.models.collection import CollectionData
 from app.models.library import Library, LIBRARY_TYPE
 from app.models.serie import Serie
 from app.scanner.text import smart_title
-from app.scanner.scraper import closest_scraper_config, load_scraper, run_search
+from app.scanner.scraper import load_scraper, run_search
 
-from app.scanner.metadata_functions.folder_collection_config import find_folder_collection_config
+from app.scanner.metadata_functions.folder_collection_config import find_closest_config
+from app.scanner.metadata_functions.get_poster_from_folder import find_image_in_folder
 from app.scanner.metadata_functions.add_collection_to_movie import add_collection_to_movie
 from app.scanner.metadata_functions.set_subfolder_as_person import set_subfolder_as_person
 from app.scanner.metadata_functions.get_poster_from_url import get_poster_from_url
@@ -25,6 +26,9 @@ from app.scanner.metadata_functions.get_main_movie_of_extra import get_main_movi
 
 from app.api.websocket_manager import ws_manager
 from app.models.notification import Notification, NOTIFICATION_TYPE
+
+# folder_is_collection: the collection's poster is an image with this name next to the __pinea.json
+FOLDER_COLLECTION_POSTER_NAMES = ["collection"]
 
 async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Library, update_poster: bool = False, search_result: Optional[SearchResult] = None):
     """search_result: a scraper hit chosen by the user (manual match). Without it the scraper's best hit is used."""
@@ -38,11 +42,12 @@ async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Libra
                 await db.execute("UPDATE movies SET is_extra_of_movie_id = ?, extra_type = ? WHERE id = ?", (main_movie.id, extra_type, movie.id))
                 await db.commit()
             
-    configs = await find_folder_collection_config(absolute_path)
+    # Only the closest __pinea.json decides how this file is scanned
+    config = await find_closest_config(absolute_path)
 
-    # 1. Scraper (network). Only the closest scraper is used, and not for extras: they would get the main movie's metadata.
+    # 1. Scraper (network). Not for extras: they would get the main movie's metadata.
     metadata: Optional[Metadata] = None
-    scraper_config = None if extra_type else closest_scraper_config(configs)
+    scraper_config = config if config and config.data.useScraper and not extra_type else None
     if scraper_config:
         try:
             scraper = load_scraper(scraper_config.currentPath)
@@ -65,8 +70,13 @@ async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Libra
             await db.execute("DELETE FROM movies__collections WHERE movie_id = ?", (movie.id,))
             await db.commit()
 
-    # 3. Folder configs
-    for config in configs:
+    # 3. Folder config
+    if config:
+        if config.data.folder_is_collection:
+            poster = find_image_in_folder(folder_path=config.currentPath, candidate_names=FOLDER_COLLECTION_POSTER_NAMES)
+            collection_data = CollectionData(title=smart_title(config.currentPath.name), poster_file_name=str(poster) if poster else None)
+            await add_collection_to_movie(collection_data=collection_data, movie=movie)
+
         if config.data.subfoldersAreCollections and config.childPath:
             collection_data = CollectionData(title=smart_title(config.childPath.name), poster_folder=config.childPath)
             await add_collection_to_movie(collection_data=collection_data, movie=movie)
