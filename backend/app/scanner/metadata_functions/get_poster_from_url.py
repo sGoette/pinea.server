@@ -22,6 +22,10 @@ def get_poster_from_url(url: str) -> Optional[str]:
             rgb_img = img.convert('RGB')
             rgb_img.save(target, format="JPEG", quality=100)
         return poster_file_name
+    except requests.HTTPError as error:
+        # Missing images (404 etc.) are normal for optional pictures like people photos
+        log.warning(f"Poster not loaded, HTTP {error.response.status_code if error.response is not None else '?'}: {url}")
+        return None
     except Exception:
         log.exception("Error loading poster from URL: ")
         return None
