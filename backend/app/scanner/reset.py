@@ -32,7 +32,7 @@ async def reset_library_metadata(library: Library) -> bool:
         # Same state as a newly found file (see scanner/movie.py add_movie_to_db)
         await db.executemany("""
 UPDATE movies SET
-    title = ?, poster_file_name = NULL, metadata_last_updated = NULL, release_date = NULL,
+    title = ?, poster_file_name = NULL, still_file_name = NULL, metadata_last_updated = NULL, release_date = NULL,
     is_extra_of_movie_id = NULL, extra_type = NULL,
     is_episode_of_serie_id = NULL, episode = NULL, season = NULL, is_extra_of_serie_id = NULL
 WHERE id = ?

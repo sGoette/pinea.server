@@ -54,6 +54,7 @@ IMAGE_URL = "https://image.tmdb.org/t/p/"
 POSTER_SIZE = "w780"          # stored posters (the server scales to max 1200 px)
 PROFILE_SIZE = "h632"         # people
 THUMBNAIL_SIZE = "w342"       # search hits in the web UI
+STILL_SIZE = "w780"           # episode stills (16:9)
 
 _session = requests.Session()
 
@@ -235,6 +236,7 @@ def _episode_metadata(show_id: int, season: Optional[int], episode: Optional[int
     credits = details.get("credits") or {}
     guests = credits.get("guest_stars") or details.get("guest_stars") or []
     metadata.movie_title = details.get("name")
+    metadata.still_url = _image(details.get("still_path"), STILL_SIZE)
     metadata.release_date = _unix_date(details.get("air_date"))
     metadata.people = _people(cast=credits.get("cast") or [], guests=guests, crew=credits.get("crew") or details.get("crew") or [])
     return metadata

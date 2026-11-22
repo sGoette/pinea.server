@@ -115,13 +115,18 @@ async def apply_metadata(movie: Movie, metadata: Metadata, library: Library):
     if metadata.poster_url:
         poster_file_name = get_poster_from_url(url=metadata.poster_url) or movie.poster_file_name
 
+    still_file_name = movie.still_file_name
+    if metadata.still_url:
+        still_file_name = get_poster_from_url(url=metadata.still_url) or movie.still_file_name
+
     title = metadata.movie_title or movie.title
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("UPDATE movies SET title = ?, poster_file_name = ?, metadata_last_updated = unixepoch(), release_date = ? WHERE id = ?", (title, poster_file_name, metadata.release_date, movie.id))
+        await db.execute("UPDATE movies SET title = ?, poster_file_name = ?, still_file_name = ?, metadata_last_updated = unixepoch(), release_date = ? WHERE id = ?", (title, poster_file_name, still_file_name, metadata.release_date, movie.id))
         await db.commit()
 
     movie.title = title
     movie.poster_file_name = poster_file_name
+    movie.still_file_name = still_file_name
 
     for person_metadata in metadata.people:
         await add_person_to_movie(person_metadata=person_metadata, movie=movie)

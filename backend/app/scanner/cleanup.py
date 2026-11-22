@@ -18,6 +18,10 @@ async def cleanup_orphaned_posters():
             movie_poster_rows = await movie_poster_cursor.fetchall()
             poster_file_names.extend([str(row["poster_file_name"]) for row in movie_poster_rows if row["poster_file_name"]])
 
+        async with db.execute("SELECT still_file_name FROM movies WHERE still_file_name IS NOT NULL") as movie_still_cursor:
+            movie_still_rows = await movie_still_cursor.fetchall()
+            poster_file_names.extend([str(row["still_file_name"]) for row in movie_still_rows if row["still_file_name"]])
+
         async with db.execute("SELECT poster_file_name FROM collections WHERE poster_file_name IS NOT NULL") as collection_poster_cursor: 
             collection_poster_rows = await collection_poster_cursor.fetchall()
             poster_file_names.extend([str(row["poster_file_name"]) for row in collection_poster_rows if row["poster_file_name"]])

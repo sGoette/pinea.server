@@ -68,7 +68,8 @@ CREATE TABLE IF NOT EXISTS movies (
     is_episode_of_serie_id INTEGER REFERENCES series(id),
     episode INTEGER,
     season TEXT,
-    is_extra_of_serie_id INTEGER REFERENCES series(id)
+    is_extra_of_serie_id INTEGER REFERENCES series(id),
+    still_file_name TEXT
 )
 """)
 
@@ -123,7 +124,7 @@ async def _add_column_if_missing(db: aiosqlite.Connection, table: str, column: s
 # CREATE TABLE IF NOT EXISTS never changes existing tables. Every schema change to an existing
 # table gets a step here, guarded by PRAGMA user_version. New databases already have the new
 # columns from the CREATE statements above, so the steps must be idempotent.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 async def migrate(db: aiosqlite.Connection):
     async with db.execute("PRAGMA user_version") as cursor:
@@ -134,6 +135,10 @@ async def migrate(db: aiosqlite.Connection):
         # Character name and billing order of a person in a movie
         await _add_column_if_missing(db, "movies__people", "character", "TEXT")
         await _add_column_if_missing(db, "movies__people", "sort_order", "INTEGER")
+
+    if version < 2:
+        # 16:9 image of the movie / episode itself (e.g. an episode still), next to the 2:3 poster
+        await _add_column_if_missing(db, "movies", "still_file_name", "TEXT")
 
     if version < SCHEMA_VERSION:
         await db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")

@@ -17,4 +17,5 @@ export type Movie = {
     is_episode_of_serie_id: number | null
     episode: number | null
     season: string | null
+    still_file_name: string | null
 }

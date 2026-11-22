@@ -21,6 +21,7 @@ class Metadata(BaseModel):
     tags: list[str] = []
     collections: list[CollectionData] = []
     poster_url: Optional[str] = None
+    still_url: Optional[str] = None         # 16:9 image of the title itself, e.g. an episode still
     people: list[PersonMetadata] = []
     serie: Optional[SerieData] = None
     season: Optional[str] = None

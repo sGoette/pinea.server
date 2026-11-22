@@ -27,6 +27,7 @@ class Movie(BaseModel):
     episode: Optional[int]
     season: Optional[str]
     is_extra_of_serie_id: Optional[int]
+    still_file_name: Optional[str] = None   # 16:9 image of the title itself, only from scrapers (no frame grabs)
 
 # Plex Extra Types
 # -deleted

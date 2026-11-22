@@ -116,14 +116,14 @@ Production layout:
 All schema is created with `CREATE TABLE IF NOT EXISTS` on startup. **Adding a column to an
 existing table therefore does nothing on existing databases.** Add the column to the CREATE statement
 *and* a step in `migrate()` (bump `SCHEMA_VERSION`, use `_add_column_if_missing`, steps must be idempotent).
-Current schema version: 1.
+Current schema version: 2.
 
 - **settings**(key TEXT UNIQUE, value TEXT, format TEXT): key/value config. Seeded:
   `MEDIA_ROOT_FOLDER` (absolute path, format `folder`), `SERVER_NAME` (`Pinea Server NNNN`, also the Bonjour name).
 - **libraries**(id PK, name, media_folder TEXT UNIQUE, type `MOVIES|SERIES|VIDEOS`)
   `media_folder` is **relative to MEDIA_ROOT_FOLDER**.
 - **movies**(id PK, title, file_location TEXT UNIQUE, length_in_seconds REAL, width, height, codec,
-  format, poster_file_name, library_id → libraries CASCADE, metadata_last_updated INT (unix),
+  format, poster_file_name, still_file_name (16:9 image of the title itself, only from scrapers, e.g. TMDB episode stills; frame grabs stay in poster_file_name), library_id → libraries CASCADE, metadata_last_updated INT (unix),
   release_date INT, added_date INT NOT NULL (unix time when the scanner first found the file, never updated), is_extra_of_movie_id → movies,
   extra_type `TRAILER|BEHIND_THE_SCENES|MAKING_OFF`, is_episode_of_serie_id → series, episode INT,
   season TEXT, is_extra_of_serie_id → series)
@@ -136,7 +136,7 @@ Current schema version: 1.
   `character` = role name ("James Bond"), `sort_order` = billing order (0 first, NULL = folder people / directors).
   `order` is a reserved SQL keyword, hence `sort_order`.
 
-`poster_file_name` everywhere is a bare file name inside POSTER_DIR (`md5(path+timestamp).jpg`).
+`poster_file_name` (and `still_file_name`) everywhere is a bare file name inside POSTER_DIR (`md5(path+timestamp).jpg`).
 Foreign keys are enforced only on connections that run `PRAGMA foreign_keys=ON`. Most API code
 opens its own `aiosqlite.connect(DB_PATH)` without it.
 
