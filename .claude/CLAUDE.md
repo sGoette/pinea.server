@@ -53,6 +53,7 @@ frontend/
   src/SerieDetail.tsx       # serie page (?serie=): all seasons on one page, each a header + row of 16:9 episode cards
   src/DetailPage.tsx        # shared frame (back, poster tint) + header of detail pages
   src/MatchDialog.tsx       # "Find match": all scraper hits for a movie, pick one to apply
+  src/CollectionPosterDialog.tsx  # change/remove a collection poster (image button next to the collection title)
   src/LibraryDialog.tsx, SettingsDialog.tsx, UpdatePanel.tsx, Folder.tsx (folder picker), Dialog.tsx, Toast.tsx
   src/useScanStatus.ts      # polls /api/scan/status while a scan runs
   src/format.ts             # posterUrl, formatDuration, formatYear, pluralize
@@ -168,6 +169,8 @@ opens its own `aiosqlite.connect(DB_PATH)` without it.
 | GET | `/api/serie/{id}` | one serie + `seasons_count` |
 | GET | `/api/serie/{id}/episodes` | episodes ordered by season, episode |
 | GET | `/api/collections/{library_id}` | collections + `movie_count` |
+| PUT | `/api/collection/{id}/poster` | body = the image file itself (not multipart, max 25 MB): becomes the poster (JPEG, max 1200 px, EXIF rotation applied). 400 = not an image |
+| DELETE | `/api/collection/{id}/poster` | remove the poster, the next scan of its movies picks one again |
 | GET | `/api/person/{id}` | one person |
 | GET | `/api/people/{library_id}` | people of a library with `movie_count` (extras don't count), sorted by name |
 | GET | `/api/poster/{file_name}?size=thumb` | poster image from POSTER_DIR. `size=thumb`: max 800×600, created on demand in `data/posters/thumbs/` (cleaned up with the posters). Cached as immutable |
@@ -318,6 +321,9 @@ The tvOS app depends on these shapes. Treat response models as a public contract
 - `Levenshtein` in requirements.txt isn't imported by the app, but scrapers (`__pinea.py` in the media
   folders) run in the server's Python environment and may use it. Don't remove it.
 - `order` is a reserved SQL keyword.
+- Uploads are raw request bodies: `python-multipart` (needed for FastAPI `UploadFile`/`Form`) is not installed.
+- A collection poster set in the UI survives scans (scans only set a poster when there is none), but not a
+  "Rebuild metadata" (it deletes the collections) or the collection being removed for having no movies.
 - `release_date` is unix seconds and negative before 1970. Don't treat values < 10000 as years unless > 0.
 - `scripts/release.sh` deletes `build/` on every run.
 - The log file is truncated on every start (`LOG_FILE.write_text("")` in main.py).

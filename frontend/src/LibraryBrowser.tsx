@@ -4,6 +4,7 @@ import axios from "axios"
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
+import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined'
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded'
@@ -21,6 +22,7 @@ import { PlayerOverlay } from "./PlayerOverlay"
 import { LibraryDialog } from "./LibraryDialog"
 import { SettingsDialog } from "./SettingsDialog"
 import { MatchDialog } from "./MatchDialog"
+import { CollectionPosterDialog } from "./CollectionPosterDialog"
 import { MovieDetail } from "./MovieDetail"
 import { PersonDetail } from "./PersonDetail"
 import { SerieDetail } from "./SerieDetail"
@@ -40,7 +42,7 @@ const movieKey = (movie: Movie) => movie.id
 const movieImage = (movie: Movie) => posterUrl(movie.poster_file_name, "thumb")    // same URL as MovieCard
 const collectionKey = (collection: Collection) => collection.id
 const collectionImage = (collection: Collection) => posterUrl(collection.poster_file_name, "thumb")
-type OpenDialog = { type: "settings" } | { type: "library", libraryId: number | null } | { type: "match", movie: Movie } | null
+type OpenDialog = { type: "settings" } | { type: "library", libraryId: number | null } | { type: "match", movie: Movie } | { type: "collectionPoster", collection: Collection } | null
 
 // During scans the server sends MOVIES_UPDATED for every file. Refetch at most this often.
 const REFRESH_DEBOUNCE_MS = 800
@@ -499,6 +501,12 @@ export const LibraryBrowser = () => {
                                     <span className="breadcrumbSeparator">/</span>
                                     <h1>{currentCollection?.title ?? "…"}</h1>
                                     <span className="contentCount">{countLabel}</span>
+                                    {
+                                        currentCollection &&
+                                        <button className="iconButton" onClick={() => setDialog({ type: "collectionPoster", collection: currentCollection })} title="Change poster" aria-label="Change poster">
+                                            <ImageOutlinedIcon />
+                                        </button>
+                                    }
                                 </nav>
                                 : <span className="contentCount">{loading && itemCount === 0 ? "" : countLabel}</span>
                             }
@@ -522,6 +530,7 @@ export const LibraryBrowser = () => {
                 onRebuild={id => startScan({ library_id: id, reset_metadata: true }).then(() => toast("Rebuilding metadata…"))}
                 onScanConfig={(id, folder) => startScan({ library_id: id, config_folder: folder }).then(() => toast(`Scanning the files of ${folder || "the media root"}…`))}
                 scanRunning={scanStatus.running} /> }
+            { dialog?.type === "collectionPoster" && <CollectionPosterDialog collection={dialog.collection} onClose={closeDialog} onSaved={() => { latestFetchContent.current(); toast("Poster updated") }} /> }
             { dialog?.type === "match" && <MatchDialog movie={dialog.movie} onClose={closeDialog} onMatched={refreshScanStatus} /> }
             { dialog?.type === "settings" && <SettingsDialog onClose={closeDialog} scanAll={() => startScan({}).then(() => toast("Scanning all libraries…"))} scanRunning={scanStatus.running} /> }
         </div>

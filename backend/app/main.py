@@ -13,6 +13,7 @@ from app.api.settings import router as settings_router
 from app.api.movie import router as movie_router
 from app.api.movies import router as movies_router
 from app.api.collections import router as collections_router
+from app.api.collection import router as collection_router
 from app.api.library import router as library_router
 from app.api.libraries import router as libraries_router
 from app.api.person import router as person_router
@@ -81,6 +82,7 @@ from app.api.serie import router as serie_router
 app.include_router(serie_router)
 
 app.include_router(collections_router)
+app.include_router(collection_router)
 app.include_router(library_router)
 app.include_router(libraries_router)
 app.include_router(person_router)

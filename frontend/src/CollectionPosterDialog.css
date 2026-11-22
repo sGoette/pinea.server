@@ -1,0 +1,60 @@
+.posterPickerRow {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+/* The poster itself is the drop zone */
+.posterDrop {
+    flex-shrink: 0;
+    width: 150px;
+    aspect-ratio: 0.6748 / 1;
+    padding: 0;
+    overflow: hidden;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--placeholder);
+    box-shadow: var(--shadow-art);
+    cursor: pointer;
+    transition: transform 0.15s ease-out;
+}
+
+.posterDrop img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.posterDrop:hover,
+.posterDrop:focus-visible {
+    transform: scale(1.04);
+}
+
+.posterDrop:focus-visible,
+.posterDrop.dragging {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.posterPickerText {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.posterPickerText h3 {
+    overflow: hidden;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 480px) {
+    .posterPickerRow {
+        flex-direction: column;
+        align-items: center;
+    }
+}
