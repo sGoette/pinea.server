@@ -86,6 +86,36 @@
     font-size: 40px;
 }
 
+/* Placeholder with the title (collections without a poster): icon and name, always visible */
+.artPlaceholder.withTitle {
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    opacity: 1;
+    text-align: center;
+}
+
+.artPlaceholder.withTitle svg {
+    opacity: 0.4;
+}
+
+.placeholderTitle {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    overflow: hidden;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+/* Collections: always the portrait poster ratio, whatever the library type or the image */
+.collectionCard {
+    --card-aspect: 0.6748 / 1;
+}
+
 /* Label: glass pill under the card, over the row gap (like the expanded tvOS focus container) */
 .cardLabel {
     position: absolute;
@@ -209,6 +239,18 @@
     width: auto;
     height: 100%;
     aspect-ratio: var(--card-aspect);
+}
+
+/* Collections on a shelf: fixed portrait box, the image is cropped into it */
+.artShelf .collectionCard .cardMedia {
+    aspect-ratio: var(--card-aspect);
+}
+
+.artShelf .collectionCard .cardMedia img {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    object-fit: cover;
 }
 
 @media (max-width: 640px) {

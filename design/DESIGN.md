@@ -64,6 +64,7 @@ System font (SF). Levels used:
 - **At rest:** saturation 0.8 and a 20 % black overlay, so images look slightly dimmed.
 - **Focused:** full color, no overlay.
 - **Missing image:** `Placeholder` fill with an SF Symbol (`film`, `person`, …), thin weight, in accent at 40 %.
+  Collections without a poster also show their name on the placeholder (always visible, not only on hover).
 
 ### Materials, depth, motion
 - Cards and controls sit on **Liquid Glass** (`glassEffect(.regular)`; header bar `.clear`).
@@ -186,8 +187,10 @@ never hard-code them in components.
   bright edge and a deep shadow. All white/black, never colored, and **not animated** (a light sweep was tried and removed).
 - **Artwork keeps its own aspect ratio** (posters can be portrait or landscape) wherever the layout
   allows it: detail headers (fixed height 400 px, natural width), single-row shelves such as
-  collections and extras on a detail page (fixed height, natural width), and "Find match" results
+  extras on a detail page (fixed height, natural width), and "Find match" results
   (whole poster inside a fixed slot).
+- **Collections are always portrait** (0.6748 : 1, like movie posters), in every library type and on the
+  detail page's collections shelf; their artwork is cropped to that ratio.
 - **Library grids per library type** (`frontend/src/gridLayout.ts`): `justified` = rows of equal height that
   fill the width, every poster in its own ratio (VIDEOS: mixed portrait and landscape); `grid` = fixed
   columns, cropped to the library's card ratio (MOVIES, SERIES: posters are portrait anyway). Compare on any library with `?layout=grid` / `?layout=justified`.

@@ -40,8 +40,6 @@ type PeopleSort = "name" | "movies"
 // Stable helpers for JustifiedGrid (no new functions on every render)
 const movieKey = (movie: Movie) => movie.id
 const movieImage = (movie: Movie) => posterUrl(movie.poster_file_name, "thumb")    // same URL as MovieCard
-const collectionKey = (collection: Collection) => collection.id
-const collectionImage = (collection: Collection) => posterUrl(collection.poster_file_name, "thumb")
 type OpenDialog = { type: "settings" } | { type: "library", libraryId: number | null } | { type: "match", movie: Movie } | { type: "collectionPoster", collection: Collection } | null
 
 // During scans the server sends MOVIES_UPDATED for every file. Refetch at most this often.
@@ -369,32 +367,28 @@ export const LibraryBrowser = () => {
             )
         }
 
+        // Collections are always a portrait grid (like movie posters), whatever the library type
+        if (showCollections) {
+            return (
+                <div className="mediaGrid">
+                    { visibleCollections.map(collection => <CollectionCard key={collection.id} collection={collection} onOpen={openCollection} />) }
+                </div>
+            )
+        }
+
         if (layout === "justified") {
-            const defaultRatio = landscape ? 16 / 9 : 0.6748
-            return showCollections
-                ? <JustifiedGrid
-                    items={visibleCollections}
-                    getKey={collectionKey}
-                    getImage={collectionImage}
-                    defaultRatio={defaultRatio}
-                    renderItem={(collection, onImageRatio) => <CollectionCard collection={collection} onOpen={openCollection} onImageRatio={onImageRatio} />}
-                  />
-                : <JustifiedGrid
-                    items={visibleMovies}
-                    getKey={movieKey}
-                    getImage={movieImage}
-                    defaultRatio={defaultRatio}
-                    renderItem={(movie, onImageRatio) => <MovieCard movie={movie} onOpen={openMovie} onPlay={playMovie} onImageRatio={onImageRatio} />}
-                  />
+            return <JustifiedGrid
+                items={visibleMovies}
+                getKey={movieKey}
+                getImage={movieImage}
+                defaultRatio={landscape ? 16 / 9 : 0.6748}
+                renderItem={(movie, onImageRatio) => <MovieCard movie={movie} onOpen={openMovie} onPlay={playMovie} onImageRatio={onImageRatio} />}
+            />
         }
 
         return (
             <div className={`mediaGrid${landscape ? " landscape" : ""}`}>
-                {
-                    showCollections
-                    ? visibleCollections.map(collection => <CollectionCard key={collection.id} collection={collection} onOpen={openCollection} />)
-                    : visibleMovies.map(movie => <MovieCard key={movie.id} movie={movie} onOpen={openMovie} onPlay={playMovie} />)
-                }
+                { visibleMovies.map(movie => <MovieCard key={movie.id} movie={movie} onOpen={openMovie} onPlay={playMovie} />) }
             </div>
         )
     }

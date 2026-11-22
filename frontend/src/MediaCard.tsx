@@ -17,6 +17,8 @@ const Card = (props: {
     meta: (string | null)[]
     image: string | null
     placeholderIcon: ReactNode
+    placeholderTitle?: boolean     // write the title on the placeholder (when there is no image)
+    className?: string
     onOpen: () => void
     onPlay?: () => void
     onImageRatio?: ((ratio: number) => void) | undefined   // the image's width / height once loaded (justified grid)
@@ -24,7 +26,7 @@ const Card = (props: {
     const meta = props.meta.filter(Boolean).join(" · ")
     return (
         <div
-            className="card"
+            className={props.className ? `card ${props.className}` : "card"}
             role="button"
             tabIndex={0}
             aria-label={meta ? `${props.title}, ${meta}` : props.title}
@@ -41,7 +43,10 @@ const Card = (props: {
                         decoding="async"
                         onLoad={props.onImageRatio && (event => props.onImageRatio!(event.currentTarget.naturalWidth / event.currentTarget.naturalHeight))}
                       />
-                    : <div className="artPlaceholder">{props.placeholderIcon}</div>
+                    : <div className={props.placeholderTitle ? "artPlaceholder withTitle" : "artPlaceholder"}>
+                        {props.placeholderIcon}
+                        { props.placeholderTitle && <span className="placeholderTitle">{props.title}</span> }
+                      </div>
                 }
                 {
                     props.onPlay &&
@@ -79,7 +84,8 @@ export const MovieCard = (props: { movie: Movie, onOpen: (movie: Movie) => void,
     )
 }
 
-export const CollectionCard = (props: { collection: Collection, onOpen: (collection: Collection) => void, onImageRatio?: ((ratio: number) => void) | undefined }) => {
+/** Collections are always portrait (like movie posters), also in VIDEOS libraries and on shelves. */
+export const CollectionCard = (props: { collection: Collection, onOpen: (collection: Collection) => void }) => {
     const { collection } = props
     return (
         <Card
@@ -87,8 +93,9 @@ export const CollectionCard = (props: { collection: Collection, onOpen: (collect
             meta={[collection.movie_count !== undefined ? pluralize(collection.movie_count, "title") : null]}
             image={posterUrl(collection.poster_file_name, "thumb")}
             placeholderIcon={<FolderOutlinedIcon />}
+            placeholderTitle
+            className="collectionCard"
             onOpen={() => props.onOpen(collection)}
-            onImageRatio={props.onImageRatio}
         />
     )
 }
