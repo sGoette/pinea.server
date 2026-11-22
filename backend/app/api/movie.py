@@ -7,6 +7,7 @@ from fastapi.responses import Response, StreamingResponse
 import aiosqlite
 from os import path
 import re
+import time
 from typing import List, Optional
 
 from app.config import DB_PATH
@@ -93,13 +94,17 @@ class FileRangeResponse(StreamingResponse):
     Here the file is closed in `finally`. The next chunk is read in a thread while the current one is
     sent, so a slow disk / NFS read and the network send overlap instead of taking turns.
     """
-    def __init__(self, file_path: str, start: int, end: int, status_code: int, headers: dict[str, str], media_type: str):
+    def __init__(self, file_path: str, start: int, end: int, status_code: int, headers: dict[str, str], media_type: str, log_label: str = ""):
         super().__init__(content=iter(()), status_code=status_code, headers=headers, media_type=media_type)
         self.file_path = file_path
         self.start = start
         self.end = end
+        self.log_label = log_label
 
     async def stream_response(self, send) -> None:
+        started = time.monotonic()
+        sent = 0
+        completed = False
         await send({ "type": "http.response.start", "status": self.status_code, "headers": self.raw_headers })
 
         file = await anyio.to_thread.run_sync(open, self.file_path, "rb")
@@ -122,8 +127,14 @@ class FileRangeResponse(StreamingResponse):
                 if remaining > 0:
                     pending = read_next()
                 await send({ "type": "http.response.body", "body": data, "more_body": True })
+                sent += len(data)
             await send({ "type": "http.response.body", "body": b"", "more_body": False })
+            completed = True
         finally:
+            # Stream diagnostics: which ranges the client asks for and whether it cancels them
+            log.info(f"[Stream] {self.log_label} {self.status_code} bytes {self.start}-{self.end}: "
+                     f"sent {sent / 1_000_000:.1f} of {(self.end - self.start + 1) / 1_000_000:.1f} MB in {time.monotonic() - started:.2f} s, "
+                     f"{'complete' if completed else 'cancelled by the client'}")
             if pending is not None and not pending.done():
                 # A read is still running in its thread: close the file once it's done
                 def close_after_read(future: asyncio.Future) -> None:
@@ -155,6 +166,8 @@ async def stream_movie(request: Request, movie_id: int):
 
     byte_range: Optional[tuple[int, int]] = None
     range_header = request.headers.get("range")
+    user_agent = (request.headers.get("user-agent") or "?").split(" ")[0]
+    log_label = f"movie {movie_id} ({user_agent}) Range: {range_header or '-'} ->"
     if range_header:
         try:
             byte_range = parse_range(range_header, file_size)
@@ -164,11 +177,11 @@ async def stream_movie(request: Request, movie_id: int):
     if byte_range:
         start, end = byte_range
         headers.update({ "Content-Range": f"bytes {start}-{end}/{file_size}", "Content-Length": str(end - start + 1) })
-        return FileRangeResponse(file_path, start, end, status_code=206, headers=headers, media_type=media_type)
+        return FileRangeResponse(file_path, start, end, status_code=206, headers=headers, media_type=media_type, log_label=log_label)
 
     # No (usable) Range header: the whole file
     headers.update({ "Content-Length": str(file_size) })
-    return FileRangeResponse(file_path, 0, file_size - 1, status_code=200, headers=headers, media_type=media_type)
+    return FileRangeResponse(file_path, 0, file_size - 1, status_code=200, headers=headers, media_type=media_type, log_label=log_label)
 
 
 @router.get("/{movie_id}/people", response_model=List[MoviePerson])
