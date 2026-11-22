@@ -2,7 +2,7 @@ import path from "path";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 import webpack from "webpack";
 
-// Backend for the dev server. Default: local backend. Example: PINEA_API=http://192.0.2.10:4000 npm run dev:frontend
+// Backend for the dev server. Default: local backend. Example: PINEA_API=http://<hostname>.local npm run dev:frontend (port 80 is forwarded to 4000)
 const API = process.env.PINEA_API || "http://localhost:4000";
 
 // npm run build        -> webpack --mode production  (dist/frontend, served by the backend)
@@ -34,7 +34,7 @@ export default (env, argv) => {
               options: {
                 presets: [
                   "@babel/preset-env",
-                  "@babel/preset-react",
+                  ["@babel/preset-react", { runtime: "automatic" }],
                   "@babel/preset-typescript",
                 ],
               },

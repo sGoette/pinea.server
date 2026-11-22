@@ -194,18 +194,18 @@ never hard-code them in components.
   (whole poster inside a fixed slot).
 - **Collections are always portrait** (0.6748 : 1, like movie posters), in every library type and on the
   detail page's collections shelf; their artwork is cropped to that ratio.
-- **Library grids per library type** (`frontend/src/gridLayout.ts`): `justified` = rows like an image search
-  (VIDEOS: mixed portrait and landscape): fixed card height, fixed gaps, the card widths flex. Every card starts as
-  portrait (0.6748 : 1) or 16:9, whichever is closer to its image, then the cards of a row are stretched or squeezed
-  a bit to fill the width exactly (the row ends where that needs the least change; images are cropped). The gap
-  between rows is larger than between cards, so rows read as rows. The last row keeps the base widths, left-aligned; `grid` = fixed
-  columns, cropped to the library's card ratio (MOVIES, SERIES: posters are portrait anyway). Compare on any library with `?layout=grid` / `?layout=justified`.
+- **Library grids (final):** MOVIES and SERIES = portrait grid, fixed columns, posters cropped to 0.6748 : 1.
+  VIDEOS (mixed portrait and landscape) = rows like an image search (`frontend/src/JustifiedGrid.tsx`): fixed card
+  height, fixed gaps, the card widths flex. Every card starts as portrait (0.6748 : 1) or 16:9, whichever is closer
+  to its image, then the cards of a row are stretched or squeezed a bit to fill the width exactly (the row ends where
+  that needs the least change; images are cropped). The gap between rows is larger than between cards, so rows read
+  as rows. The last row keeps the base widths, left-aligned.
 - **No file names in the UI chrome.** The file location is debug information: it only appears in the
   technical details of a detail page, never as a title or subtitle. Detail header subtitle:
   year · duration · resolution.
 - The tvOS app is still in development. When it and this file disagree, ask which one is right.
 
 ## 7. Open questions
-- [ ] Justified rows (on for VIDEOS): If yes: store the poster format (portrait/landscape) on the server, so rows don't adjust while posters load.
+- [ ] VIDEOS rows: store the poster format (portrait/landscape) on the server, so rows don't adjust while posters load?
 - [ ] tvOS `Person` decodes `order`, the server sends `sort_order` → rename it in the tvOS model.
       (Nothing breaks meanwhile, because the field is optional and the list is already sorted.)

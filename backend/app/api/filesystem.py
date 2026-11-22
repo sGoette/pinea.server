@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import List
 from pathlib import Path
-from app.config import DB_PATH
 from app.models.folder import Folder, FolderListResponse
 from app.config import GET_MEDIA_ROOT_FOLDER
 

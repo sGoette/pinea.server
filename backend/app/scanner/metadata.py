@@ -7,7 +7,7 @@ log = logging.getLogger(__name__)
 
 from app.config import DB_PATH, POSTER_DIR
 from app.models.movie import Movie
-from app.models.metadata import Metadata, SearchResult
+from app.models.metadata import Metadata, SearchResult, release_date_to_unix
 from app.scanner.media import generate_poster
 from app.models.collection import CollectionData
 from app.models.library import Library, LIBRARY_TYPE
@@ -30,10 +30,8 @@ from app.models.notification import Notification, NOTIFICATION_TYPE
 # folder_is_collection: the collection's poster is an image with this name next to the __pinea.json
 FOLDER_COLLECTION_POSTER_NAMES = ["collection"]
 
-async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Library, update_poster: bool = False, search_result: Optional[SearchResult] = None):
+async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Library, search_result: Optional[SearchResult] = None):
     """search_result: a scraper hit chosen by the user (manual match). Without it the scraper's best hit is used."""
-    force_update_poster = update_poster
-
     extra_type, main_movie_file_name = get_extra_type(absolute_path)
     if extra_type and main_movie_file_name:
         main_movie = await get_main_movie_of_extra(absolute_file_path=absolute_path, main_movie_file_name=main_movie_file_name, extra_movie=movie, library_id=movie.library_id)
@@ -92,18 +90,16 @@ async def fetch_movie_metadata(movie: Movie, absolute_path: Path, library: Libra
     if metadata:
         try:
             await apply_metadata(movie=movie, metadata=metadata, library=library)
-            if metadata.poster_url and movie.poster_file_name:
-                force_update_poster = False
         except Exception:
             log.exception(f"[Scanner] Could not save the metadata of {absolute_path}")
 
     # Grab a frame only if there is no usable poster: none yet, or the file is gone from the poster folder
     poster_missing = movie.poster_file_name is None or not (POSTER_DIR / movie.poster_file_name).is_file()
-    if ( poster_missing or force_update_poster ) and movie.length_in_seconds:
+    if poster_missing and movie.length_in_seconds:
         try:
-            poster_from_stil = await generate_poster(path=absolute_path, length_in_seconds=movie.length_in_seconds)
+            frame_poster = await generate_poster(path=absolute_path, length_in_seconds=movie.length_in_seconds)
             async with aiosqlite.connect(DB_PATH) as db:
-                await db.execute("UPDATE movies SET poster_file_name = ?, metadata_last_updated = unixepoch() WHERE id = ?", (poster_from_stil, movie.id))
+                await db.execute("UPDATE movies SET poster_file_name = ?, metadata_last_updated = unixepoch() WHERE id = ?", (frame_poster, movie.id))
                 await db.commit()
         except Exception:
             log.exception(f"[Scanner] Failed to generate poster for {absolute_path}")
@@ -121,7 +117,7 @@ async def apply_metadata(movie: Movie, metadata: Metadata, library: Library):
 
     title = metadata.movie_title or movie.title
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("UPDATE movies SET title = ?, poster_file_name = ?, still_file_name = ?, metadata_last_updated = unixepoch(), release_date = ? WHERE id = ?", (title, poster_file_name, still_file_name, metadata.release_date, movie.id))
+        await db.execute("UPDATE movies SET title = ?, poster_file_name = ?, still_file_name = ?, metadata_last_updated = unixepoch(), release_date = ? WHERE id = ?", (title, poster_file_name, still_file_name, release_date_to_unix(metadata.release_date), movie.id))
         await db.commit()
 
     movie.title = title

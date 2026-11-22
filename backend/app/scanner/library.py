@@ -30,11 +30,8 @@ def config_scan_root(library_path: Path, config_path: Path) -> Optional[Path]:
 
 async def scan_library(library: Library, ignore_existing_metadata: bool, config_folder: Optional[str] = None):
     """config_folder (relative to MEDIA_ROOT_FOLDER): only the files whose closest __pinea.json is in that folder."""
-    MEDIA_ROOT_FOLDER = await GET_MEDIA_ROOT_FOLDER()
-    library_media_folder = library.media_folder
-
-    MEDIA_ROOT_FOLDER = Path(MEDIA_ROOT_FOLDER).resolve()
-    absolute_library_path = (MEDIA_ROOT_FOLDER / library_media_folder).resolve()
+    MEDIA_ROOT_FOLDER = Path(await GET_MEDIA_ROOT_FOLDER()).resolve()
+    absolute_library_path = (MEDIA_ROOT_FOLDER / library.media_folder).resolve()
 
     walk_root: Optional[Path] = absolute_library_path
     config_path: Optional[Path] = None
@@ -56,10 +53,10 @@ async def scan_library(library: Library, ignore_existing_metadata: bool, config_
             if not os.path.splitext(filename)[1].lower() in VIDEO_EXTENSIONS:
                 continue
             
-            absolte_file_path = (Path(dirpath).resolve() / filename)
-            movie = await process_movie(absolute_file_path=absolte_file_path, library_id=library.id)
+            absolute_file_path = Path(dirpath).resolve() / filename
+            movie = await process_movie(absolute_file_path=absolute_file_path, library_id=library.id)
 
-            if movie and (movie.metadata_last_updated is None or ignore_existing_metadata is True):
-                await fetch_movie_metadata(movie=movie, absolute_path=absolte_file_path, library=library)
+            if movie and (movie.metadata_last_updated is None or ignore_existing_metadata):
+                await fetch_movie_metadata(movie=movie, absolute_path=absolute_file_path, library=library)
     
     await ws_manager.broadcast(Notification(type=NOTIFICATION_TYPE.LIBRARIES_UPDATED))

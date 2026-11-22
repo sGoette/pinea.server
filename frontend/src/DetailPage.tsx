@@ -1,4 +1,4 @@
-import React, { useEffect, type ReactNode } from "react"
+import { useEffect, type ReactNode } from "react"
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded'
 import './DetailPage.css'
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined'
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined'
 import axios from "axios"
@@ -12,9 +12,9 @@ export const Folder = (props: { name: string, path: string, libraryMediaFolder: 
     const [ open, setOpen ] = useState<boolean>(false)
 
     const fetchSubFolders = () => {
-        axios.get('/api/filesystem/list', { params: { current_directory: props.path } })
+        axios.get<{ path: string, entries: FolderEntry[] }>('/api/filesystem/list', { params: { current_directory: props.path } })
         .then(response => {
-            setSubFolders(response.data.entries as FolderEntry[])
+            setSubFolders(response.data.entries)
             setOpen(true)
         })
         .catch(() => setSubFolders([]))

@@ -60,6 +60,10 @@ mkdir -p "$RELEASE_DIR/scripts/linux"
 cp scripts/linux/install.sh scripts/linux/pinea-run.sh scripts/linux/pinea.service "$RELEASE_DIR/scripts/linux/"
 chmod +x "$RELEASE_DIR/scripts/linux/install.sh" "$RELEASE_DIR/scripts/linux/pinea-run.sh"
 
+# One-off database migration (run by hand on the server, see the script's docstring)
+cp scripts/migrate-data.py "$RELEASE_DIR/scripts/"
+chmod +x "$RELEASE_DIR/scripts/migrate-data.py"
+
 # VERSION.json: lets the server know which commit it runs (used by the updater).
 python3 - "$RELEASE_DIR/VERSION.json" "$VERSION" "$COMMIT" "$(git log -1 --format=%cI)" "$(git log -1 --format=%s)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" <<'EOF'
 import json, sys

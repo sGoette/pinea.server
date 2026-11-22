@@ -203,7 +203,6 @@ def _movie_metadata(movie_id: int, potential_collections: list[str]) -> Metadata
         movie_title=movie.get("title"),
         release_date=_unix_date(movie.get("release_date")),
         poster_url=_image(movie.get("poster_path"), POSTER_SIZE),
-        genres=genres,
         collections=collections,
         people=_people(cast=credits.get("cast") or [], crew=credits.get("crew") or []),
     )
@@ -213,7 +212,6 @@ def _episode_metadata(show_id: int, season: Optional[int], episode: Optional[int
     show_poster = _image(show.get("poster_path"), POSTER_SIZE)
     metadata = Metadata(
         serie=SerieData(title=show.get("name") or "", poster_url=show_poster),
-        genres=[genre["name"] for genre in show.get("genres") or []],
         poster_url=show_poster,
     )
     if season is None or episode is None:

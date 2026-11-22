@@ -1,4 +1,4 @@
-import React, { useEffect, type ReactNode } from "react"
+import { useEffect, type ReactNode } from "react"
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import './Dialog.css'
 

@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react"
 import './Toast.css'
 
 const ToastContext = createContext<(message: string) => void>(() => {})

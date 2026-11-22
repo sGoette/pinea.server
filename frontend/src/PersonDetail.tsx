@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import axios from "axios"
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded'
 import type { Movie } from "./types/Movie"

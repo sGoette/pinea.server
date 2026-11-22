@@ -10,8 +10,8 @@ used for settings, library management and triggering scans. The main client is a
 - **Backend**: Python (FastAPI + uvicorn, aiosqlite, pydantic v2, zeroconf, Pillow, requests, Levenshtein).
   Requires Python ≥ 3.11 (`StrEnum`). Local dev venv uses 3.14 (`.venv/`).
 - **External binaries**: `ffprobe` (video metadata) and `ffmpeg` (poster frame grabs), called via subprocess.
-- **Frontend**: React 19 + MUI 7 + react-router 7, TypeScript, bundled with webpack/babel into `dist/frontend`.
-- **DB**: single SQLite file, WAL mode. No ORM, raw SQL everywhere. Schema changes: `migrate()` in `db/database.py` (`PRAGMA user_version`).
+- **Frontend**: React 19 + MUI 7 + react-router 7, TypeScript, bundled with webpack/babel into `dist/frontend`. Automatic JSX runtime: files only import what they use from `react`, never `React` itself.
+- **DB**: single SQLite file, WAL mode. No ORM, raw SQL everywhere. The whole schema is `SCHEMA` in `db/database.py`, no migration code (see Database schema).
 - `package.json` only contains the web UI and its build tools. `@mui/material` + `@emotion/*` are needed
   as peer dependencies of `@mui/icons-material`.
 
@@ -19,12 +19,12 @@ used for settings, library management and triggering scans. The main client is a
 
 ```
 backend/
-  requirements.txt          # pinned Python deps (NOTE: Pillow missing, but it is imported)
+  requirements.txt          # pinned Python deps
   app/
     main.py                 # FastAPI app, lifespan (init_db, scanner thread, zeroconf), SPA serving
     config.py               # paths (BASE_DIR, DB_PATH, POSTER_DIR, LOG_FILE), settings getters, constants
     logging_setup.py        # rotating file log -> data/pinea.log (truncated on every start)
-    db/database.py          # get_db(), init_db(): CREATE TABLE IF NOT EXISTS for all tables
+    db/database.py          # SCHEMA, init_db(), fetch_all()/fetch_one() for read endpoints
     api/                    # one router per file (see endpoints below)
     models/                 # pydantic models (API response shapes + scanner DTOs)
     scanner/
@@ -49,7 +49,8 @@ frontend/
   src/PlayerOverlay.tsx     # fullscreen <video> overlay (?play=<id>), closes with ✕ / Esc / back
   src/MovieDetail.tsx       # movie detail page (?movie=<id>): header, cast & crew, extras, collections, details
   src/PersonDetail.tsx      # person page (?person=<id>): photo, name, their titles
-  src/JustifiedGrid.tsx     # justified rows (image-search style: fixed height + gaps, portrait/16:9 cards flex in width); gridLayout.ts picks grid/justified per library type
+  src/JustifiedGrid.tsx     # justified rows (image-search style: fixed height + gaps, portrait/16:9 cards flex in width); used for VIDEOS libraries, the others use the portrait grid
+  src/VirtualGrid.tsx        # CSS grid that renders only the rows near the viewport (library grids); useVisibleWindow.ts
   src/SerieDetail.tsx       # serie page (?serie=): all seasons on one page, each a header + row of 16:9 episode cards
   src/DetailPage.tsx        # shared frame (back, poster tint) + header of detail pages
   src/MatchDialog.tsx       # "Find match": all scraper hits for a movie, pick one to apply
@@ -60,6 +61,7 @@ frontend/
   src/styles.css            # design tokens (CSS variables), buttons, inputs, segmented control
   src/types/                # TS mirrors of backend models
 scripts/release.sh          # builds the release tarball + VERSION.json/version.json (used by CI)
+scripts/migrate-data.py     # one-off: brings an old database to the current schema and data formats (backup first)
 scripts/linux/              # install.sh, pinea.service, pinea-run.sh (Linux/systemd)
 scripts/filesystem          # sketch of the intended media folder layout (incl. series/seasons)
 .github/workflows/          # build-main.yml: build + publish every push to main
@@ -70,7 +72,7 @@ webpack.config.js           # one config: --mode production (build) / developmen
 
 ```sh
 npm run dev            # webpack dev server :3000 (proxies /api -> :4000) + uvicorn --reload :4000
-PINEA_API=http://<server>:4000 npm run dev:frontend   # new UI against a running server's data
+PINEA_API=http://<hostname>.local npm run dev:frontend   # new UI against a running server's data (port 80 -> 4000)
 npm run dev:backend    # backend only: .venv/bin/python -m uvicorn app.main:app --app-dir backend --port 4000
 ./scripts/dev-sandbox.sh   # local test env in .sandbox/ (gitignored): fake videos, own DB, TMDB scraper copies
                            #   --reset (empty DB), --db FILE (test on a copy of a DB), TMDB_API_KEY=... to set the key
@@ -80,7 +82,8 @@ npm run typecheck
 ./scripts/release.sh v0.1.7   # builds build/pineaserver-v0.1.7.tar.gz + build/version.json (wipes build/ first)
 ```
 
-There are no tests and no linter config.
+There are no tests and no linter config. `tsc` runs with `noUnusedLocals`/`noUnusedParameters` (stale code fails the typecheck);
+for Python, `.venv/bin/python -m pyflakes backend/app` finds unused imports/variables.
 
 ## Paths at runtime (config.py)
 
@@ -94,7 +97,6 @@ and the app is loaded through the `current` symlink (`--app-dir <root>/current/b
 | DB_PATH       | `<root>/data/db/database.sqlite`  |
 | POSTER_DIR    | `<root>/data/posters/`            |
 | LOG_FILE      | `<root>/data/pinea.log`           |
-| HLS_ROOT      | `<root>/data/tmp/hls` (unused)    |
 | FRONTEND_DIR  | `<repo or release>/frontend`      |
 
 `PINEA_DATA_ROOT` overrides `<root>` (used by the sandbox).
@@ -114,10 +116,12 @@ Production layout:
 
 ## Database schema (`backend/app/db/database.py`)
 
-All schema is created with `CREATE TABLE IF NOT EXISTS` on startup. **Adding a column to an
-existing table therefore does nothing on existing databases.** Add the column to the CREATE statement
-*and* a step in `migrate()` (bump `SCHEMA_VERSION`, use `_add_column_if_missing`, steps must be idempotent).
-Current schema version: 2.
+`SCHEMA` holds the whole schema, created with `CREATE TABLE IF NOT EXISTS` on startup. There is no
+migration code (only one database exists, and it is on the current state). **Adding a column to an existing
+table therefore does nothing on existing databases.** For a schema or data format change: change `SCHEMA` and
+extend/write a one-off script like `scripts/migrate-data.py` (backup, `--dry-run`, idempotent), run it on the
+server. At startup `init_db()` logs an error when the database lacks columns of `SCHEMA` (`missing_columns()`).
+Read endpoints use `fetch_all()` / `fetch_one()` (rows as dicts); writes open their own `aiosqlite` connection.
 
 - **settings**(key TEXT UNIQUE, value TEXT, format TEXT): key/value config. Seeded:
   `MEDIA_ROOT_FOLDER` (absolute path, format `folder`), `SERVER_NAME` (`Pinea Server NNNN`, also the Bonjour name).
@@ -193,6 +197,9 @@ The tvOS app depends on these shapes. Treat response models as a public contract
   `collection`, `movie` (detail page), `person` (person page), `serie` (SERIES libraries), `play`. Cards open the detail page; the grid stays
   mounted (hidden) behind detail pages so its scroll position survives. Reload keeps the place and the browser's back button works (it also closes the player).
 - Dark theme only. Colors, radii and spacing are CSS variables in `styles.css` (the web copy of the tvOS assets, see DESIGN.md). Use them instead of hard-coded values.
+- Library grids are virtualized (libraries have thousands of titles): `VirtualGrid` reads columns and row height
+  from the CSS, so every card of a grid must have the same height; `JustifiedGrid` renders only boxes near the
+  viewport. Offscreen cards aren't in the DOM (the browser's find doesn't see them, the search field does).
 - WebSocket `MOVIES_UPDATED` arrives once per file during scans, so the UI debounces refetches (800 ms).
 - Posters must use absolute URLs (`/api/poster/...`, see `posterUrl()`).
 - Browsers can only play what they support (mp4/h264, ...). mkv/avi etc. show a message in the player.
@@ -324,7 +331,8 @@ The tvOS app depends on these shapes. Treat response models as a public contract
 - Uploads are raw request bodies: `python-multipart` (needed for FastAPI `UploadFile`/`Form`) is not installed.
 - A collection poster set in the UI survives scans (scans only set a poster when there is none), but not a
   "Rebuild metadata" (it deletes the collections) or the collection being removed for having no movies.
-- `release_date` is unix seconds and negative before 1970. Don't treat values < 10000 as years unless > 0.
+- `release_date` is always unix seconds (negative before 1970). Plain years from scrapers are converted on input
+  (`release_date_to_unix()` in `models/metadata.py`), old ones by `scripts/migrate-data.py`. The UI doesn't handle years.
 - `scripts/release.sh` deletes `build/` on every run.
 - The log file is truncated on every start (`LOG_FILE.write_text("")` in main.py).
 - uvicorn exits with code 143 after a SIGTERM (it re-raises the signal). That's normal.

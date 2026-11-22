@@ -4,12 +4,11 @@ import asyncio
 import os
 import anyio
 from fastapi.responses import Response, StreamingResponse
-import aiosqlite
 from os import path
 import re
 from typing import List, Optional
 
-from app.config import DB_PATH
+from app.db.database import fetch_all, fetch_one
 from app.models.movie import Movie
 from app.models.person import MoviePerson
 from app.models.collection import Collection
@@ -26,15 +25,13 @@ router = APIRouter(prefix="/api/movie")
 
 @router.get("/{movie_id}", response_model=Movie)
 async def get_movie(movie_id: int):
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("SELECT * FROM movies WHERE id = ?", (movie_id,)) as cursor:
-            movie = await cursor.fetchone()
+    return await _get_movie_row(movie_id)
 
-    if movie is None: 
+async def _get_movie_row(movie_id: int) -> dict:
+    movie = await fetch_one("SELECT * FROM movies WHERE id = ?", (movie_id,))
+    if movie is None:
         raise HTTPException(status_code=404, detail="Movie not found")
-    
-    return dict(movie)
+    return movie
 
 # Small chunks: the first bytes go out quickly (AVPlayer opens a new range request for every seek)
 # and TCP backpressure from a full player buffer stops the reading early.
@@ -136,16 +133,8 @@ class FileRangeResponse(StreamingResponse):
 
 @router.get("/{movie_id}/stream")
 async def stream_movie(request: Request, movie_id: int):
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("SELECT * FROM movies WHERE id = ?", (movie_id,)) as cursor:
-            movie = await cursor.fetchone()
-        MEDIA_ROOT_FOLDER = await GET_MEDIA_ROOT_FOLDER()
-
-    if not movie or not MEDIA_ROOT_FOLDER:
-        raise HTTPException(status_code=404, detail="Movie not found")
-    
-    file_path = path.join(MEDIA_ROOT_FOLDER, movie["file_location"])
+    movie = await _get_movie_row(movie_id)
+    file_path = path.join(await GET_MEDIA_ROOT_FOLDER(), movie["file_location"])
     if not path.isfile(file_path):
         raise HTTPException(status_code=404, detail="File not found on disk")
     
@@ -174,63 +163,33 @@ async def stream_movie(request: Request, movie_id: int):
 @router.get("/{movie_id}/people", response_model=List[MoviePerson])
 async def get_people(movie_id: int):
     """Billing order first (people without one, e.g. from folder configs, after that by name)."""
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("""
+    return await fetch_all("""
 SELECT p.*, mp.character, mp.sort_order
 FROM people p
-JOIN movies__people mp ON mp.person_id = p.id 
+JOIN movies__people mp ON mp.person_id = p.id
 WHERE mp.movie_id = ?
 ORDER BY mp.sort_order IS NULL, mp.sort_order, p.name COLLATE NOCASE
-""", (movie_id,)) as cursor:
-            rows = await cursor.fetchall()
-
-    if not rows:
-        return []
-    
-    return [dict(row) for row in rows]
+""", (movie_id,))
 
 @router.get("/{movie_id}/collections", response_model=List[Collection])
 async def get_collections(movie_id: int):
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("""
+    return await fetch_all("""
 SELECT c.*
 FROM collections c
 JOIN movies__collections mc ON mc.collection_id = c.id
 WHERE mc.movie_id = ?
 ORDER BY c.title COLLATE NOCASE
-""", (movie_id,)) as cursor:
-            rows = await cursor.fetchall()
-
-    return [dict(row) for row in rows]
+""", (movie_id,))
 
 @router.get("/{movie_id}/extras", response_model=List[Movie])
 async def get_extras(movie_id: int):
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("SELECT * FROM movies WHERE is_extra_of_movie_id = ? ORDER BY title ASC", (movie_id,)) as cursor: 
-            rows = await cursor.fetchall()
-
-    if not rows: 
-        return []
-    
-    return [dict(row) for row in rows]
-
+    return await fetch_all("SELECT * FROM movies WHERE is_extra_of_movie_id = ? ORDER BY title ASC", (movie_id,))
 
 async def _movie_with_library(movie_id: int) -> tuple[Movie, Library, Path]:
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("SELECT * FROM movies WHERE id = ?", (movie_id,)) as cursor:
-            movie_row = await cursor.fetchone()
-        if movie_row is None:
-            raise HTTPException(status_code=404, detail="Movie not found")
-        movie = Movie(**movie_row)
-
-        async with db.execute("SELECT * FROM libraries WHERE id = ?", (movie.library_id,)) as cursor:
-            library_row = await cursor.fetchone()
-        if library_row is None:
-            raise HTTPException(status_code=404, detail="Library not found")
+    movie = Movie(**await _get_movie_row(movie_id))
+    library_row = await fetch_one("SELECT * FROM libraries WHERE id = ?", (movie.library_id,))
+    if library_row is None:
+        raise HTTPException(status_code=404, detail="Library not found")
 
     absolute_path = Path(await GET_MEDIA_ROOT_FOLDER()) / movie.file_location
     return movie, Library(**library_row), absolute_path

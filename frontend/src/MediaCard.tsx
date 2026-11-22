@@ -1,4 +1,4 @@
-import React, { type ReactNode } from "react"
+import { type ReactNode } from "react"
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
 import MovieOutlinedIcon from '@mui/icons-material/MovieOutlined'
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined'
@@ -131,7 +131,6 @@ export const EpisodeCard = (props: { episode: Movie, onOpen: (episode: Movie) =>
 }
 
 /** Cast card: circular photo, name and character are always visible (the role is the information). */
-/** Cast card: name + character (or "Director"). */
 export const PersonCard = (props: { person: MoviePerson, onOpen: (person: MoviePerson) => void }) => {
     const { person } = props
     const role = person.character ?? (person.role === "DIRECTOR" ? "Director" : null)

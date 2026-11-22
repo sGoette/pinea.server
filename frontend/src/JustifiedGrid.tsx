@@ -1,4 +1,5 @@
-import React, { useCallback, useLayoutEffect, useMemo, useRef, useState, type Key, type ReactNode } from "react"
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type Key, type ReactNode } from "react"
+import { useVisibleWindow } from "./useVisibleWindow"
 import './JustifiedGrid.css'
 
 // Aspect ratios (width / height) of images, measured when they load. Kept for the session, so
@@ -71,7 +72,8 @@ const computeLayout = (ratios: number[], width: number, rowHeight: number, gap: 
  * Rows of equal height that fill the full width (like an image search). Every card starts as portrait
  * or 16:9, whichever is closer to its image, and its width flexes a bit so the row fills exactly.
  * Items are positioned absolutely and keep their React key, so a reflow (resize, an image's real
- * size becoming known) never remounts them.
+ * size becoming known) never remounts them. Only the items near the viewport are rendered (libraries
+ * have thousands of titles); the layout of all of them is computed, it's cheap.
  */
 export const JustifiedGrid = <T,>(props: {
     items: T[]
@@ -85,12 +87,16 @@ export const JustifiedGrid = <T,>(props: {
     const [ width, setWidth ] = useState(0)
     const [ ratioVersion, setRatioVersion ] = useState(0)
     const frame = useRef<number | null>(null)
+    const visible = useVisibleWindow(container)
 
     useLayoutEffect(() => {
         const element = container.current
         if (!element) return
-        setWidth(element.getBoundingClientRect().width)
-        const observer = new ResizeObserver(entries => setWidth(entries[0]!.contentRect.width))
+        // Width 0 = hidden behind a detail page: keep the layout, so the page keeps its height and the
+        // scroll position can be restored when coming back
+        const setVisibleWidth = (value: number) => { if (value > 0) setWidth(value) }
+        setVisibleWidth(element.getBoundingClientRect().width)
+        const observer = new ResizeObserver(entries => setVisibleWidth(entries[0]!.contentRect.width))
         observer.observe(element)
         return () => {
             observer.disconnect()
@@ -129,6 +135,7 @@ export const JustifiedGrid = <T,>(props: {
                 layout.boxes.length === props.items.length &&
                 props.items.map((item, index) => {
                     const box = layout.boxes[index]!
+                    if (box.top + box.height < visible.top || box.top > visible.bottom) return null
                     const image = getImage(item)
                     return (
                         <div key={props.getKey(item)} className="justifiedItem" style={{ left: box.left, top: box.top, width: box.width, height: box.height }}>

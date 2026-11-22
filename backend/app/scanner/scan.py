@@ -27,7 +27,7 @@ async def scan_libraries(job: ScanJob):
                     library = Library(**library_row)
                     absolute_movie_path = Path(await GET_MEDIA_ROOT_FOLDER()) / movie.file_location
                     # Refresh keeps an existing poster (a scraper may still replace it with a better one)
-                    await fetch_movie_metadata(movie=movie, absolute_path=absolute_movie_path, library=library, update_poster=False, search_result=job.search_result)
+                    await fetch_movie_metadata(movie=movie, absolute_path=absolute_movie_path, library=library, search_result=job.search_result)
 
             return
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router"
 import axios from "axios"
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -29,16 +29,16 @@ import { SerieDetail } from "./SerieDetail"
 import { useToast } from "./Toast"
 import { useScanStatus } from "./useScanStatus"
 import { pluralize, posterUrl } from "./format"
-import { JustifiedGrid, LANDSCAPE_RATIO, PORTRAIT_RATIO } from "./JustifiedGrid"
-import { gridLayoutFor } from "./gridLayout"
+import { JustifiedGrid, LANDSCAPE_RATIO } from "./JustifiedGrid"
+import { VirtualGrid } from "./VirtualGrid"
 import './LibraryBrowser.css'
 import logoUrl from '../../design/logo.svg'
 
 type View = "collections" | "all" | "people"
 type PeopleSort = "name" | "movies"
 
-// Stable helpers for JustifiedGrid (no new functions on every render)
-const movieKey = (movie: Movie) => movie.id
+// Stable helpers for the grids (no new functions on every render)
+const byId = (item: { id: number }) => item.id
 const movieImage = (movie: Movie) => posterUrl(movie.poster_file_name, "thumb")    // same URL as MovieCard
 type OpenDialog = { type: "settings" } | { type: "library", libraryId: number | null } | { type: "match", movie: Movie } | { type: "collectionPoster", collection: Collection } | null
 
@@ -218,10 +218,10 @@ export const LibraryBrowser = () => {
     const visibleCount = isSeriesLibrary ? visibleSeries.length + visibleMovies.length : showPeople ? visiblePeople.length : showCollections ? visibleCollections.length : visibleMovies.length
 
     // --- Actions ---
-    const selectLibrary = (id: number) => updateParams({ library: id, collection: null, movie: null, person: null, serie: null, season: null })
+    const selectLibrary = (id: number) => updateParams({ library: id, collection: null, movie: null, person: null, serie: null })
     const setView = (newView: View) => updateParams({ view: newView === "collections" ? null : newView, collection: null })
     const setPeopleSort = (sort: PeopleSort) => updateParams({ sort: sort === "name" ? null : sort }, true)
-    const openCollection = (collection: Collection) => updateParams({ view: null, collection: collection.id, movie: null, person: null, serie: null, season: null })
+    const openCollection = (collection: Collection) => updateParams({ view: null, collection: collection.id, movie: null, person: null, serie: null })
     const closeCollection = () => updateParams({ collection: null })
 
     // Detail pages. Remember the grid's scroll position and restore it when coming back.
@@ -237,7 +237,7 @@ export const LibraryBrowser = () => {
     // Series: serie (all seasons) -> episode (movie detail). Each level is one history entry.
     const openSerie = (serie: Serie) => {
         if (!detailOpen) gridScroll.current = window.scrollY
-        updateParams({ serie: serie.id, season: null, movie: null, person: null })
+        updateParams({ serie: serie.id, movie: null, person: null })
     }
     const closeDetail = useCallback(() => {
         // Opened inside the app -> browser back (keeps history clean). Opened from a link -> one level up.
@@ -282,8 +282,6 @@ export const LibraryBrowser = () => {
 
     // --- Render ---
     const landscape = library?.type === LibraryType.VIDEOS
-    // Grid or justified rows, per library type (gridLayout.ts). ?layout=grid|justified overrides it.
-    const layout = gridLayoutFor(library?.type, params.get("layout"))
 
     const renderContent = () => {
         if (libraries === null) return null
@@ -342,56 +340,42 @@ export const LibraryBrowser = () => {
             return <>
                 {
                     visibleSeries.length > 0 &&
-                    <div className="mediaGrid">
-                        { visibleSeries.map(serie => <SerieCard key={serie.id} serie={serie} onOpen={openSerie} />) }
-                    </div>
+                    <VirtualGrid className="mediaGrid" items={visibleSeries} getKey={byId} renderItem={serie => <SerieCard serie={serie} onOpen={openSerie} />} />
                 }
                 {
                     // Files the scraper couldn't assign to a serie: still reachable
                     visibleMovies.length > 0 &&
                     <section className="unassignedSection">
                         <h2>Not assigned to a series</h2>
-                        <div className="mediaGrid">
-                            { visibleMovies.map(movie => <MovieCard key={movie.id} movie={movie} onOpen={openMovie} onPlay={playMovie} caption={landscape} />) }
-                        </div>
+                        <VirtualGrid className="mediaGrid" items={visibleMovies} getKey={byId} renderItem={movie => <MovieCard movie={movie} onOpen={openMovie} onPlay={playMovie} />} />
                     </section>
                 }
             </>
         }
 
         if (showPeople) {
-            return (
-                <div className="personGrid">
-                    { visiblePeople.map(person => <LibraryPersonCard key={person.id} person={person} onOpen={openPerson} />) }
-                </div>
-            )
+            return <VirtualGrid className="personGrid" items={visiblePeople} getKey={byId} renderItem={person => <LibraryPersonCard person={person} onOpen={openPerson} />} />
         }
 
         // Collections are always a portrait grid (like movie posters), whatever the library type
         if (showCollections) {
-            return (
-                <div className="mediaGrid">
-                    { visibleCollections.map(collection => <CollectionCard key={collection.id} collection={collection} onOpen={openCollection} />) }
-                </div>
-            )
+            return <VirtualGrid className="mediaGrid" items={visibleCollections} getKey={byId} renderItem={collection => <CollectionCard collection={collection} onOpen={openCollection} />} />
         }
 
-        if (layout === "justified") {
+        // VIDEOS (home videos, mixed portrait and landscape stills): image-search rows with captions
+        if (landscape) {
             return <JustifiedGrid
                 items={visibleMovies}
-                getKey={movieKey}
+                getKey={byId}
                 getImage={movieImage}
-                defaultRatio={landscape ? LANDSCAPE_RATIO : PORTRAIT_RATIO}
-                captionSpace={landscape ? 16 : 0}
-                renderItem={(movie, onImageRatio) => <MovieCard movie={movie} onOpen={openMovie} onPlay={playMovie} caption={landscape} onImageRatio={onImageRatio} />}
+                defaultRatio={LANDSCAPE_RATIO}
+                captionSpace={16}
+                renderItem={(movie, onImageRatio) => <MovieCard movie={movie} onOpen={openMovie} onPlay={playMovie} caption onImageRatio={onImageRatio} />}
             />
         }
 
-        return (
-            <div className={`mediaGrid${landscape ? " landscape" : ""}`}>
-                { visibleMovies.map(movie => <MovieCard key={movie.id} movie={movie} onOpen={openMovie} onPlay={playMovie} />) }
-            </div>
-        )
+        // MOVIES: portrait poster grid
+        return <VirtualGrid className="mediaGrid" items={visibleMovies} getKey={byId} renderItem={movie => <MovieCard movie={movie} onOpen={openMovie} onPlay={playMovie} />} />
     }
 
     const countNoun: [string, string] = isSeriesLibrary ? ["series", "series"] : showPeople ? ["person", "people"] : showCollections ? ["collection", "collections"] : ["title", "titles"]

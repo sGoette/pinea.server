@@ -8,7 +8,7 @@ from datetime import datetime
 from app.config import POSTER_DIR
 
 def get_file_hash(path: str) -> str:
-    """Generate a consistent hash for a file path"""
+    """New file name for a poster of this source: path + current time, so a changed image gets a new name (cache busting)."""
     return hashlib.md5(f"{path}{datetime.now().timestamp()}".encode("utf-8")).hexdigest()
 
 async def get_video_file_metadata(path: Path) -> dict:
@@ -38,7 +38,7 @@ async def get_video_file_metadata(path: Path) -> dict:
 async def generate_poster(path: Path, length_in_seconds: float) -> str:
     """
     Generate a poster image from a random frame.
-    Returns the poster path relative to MEDIA_ROOT.
+    Returns the file name of the poster in POSTER_DIR.
     """
     file_hash = get_file_hash(str(path))
     poster_path = POSTER_DIR / f"{file_hash}.jpg"

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request
 from typing import List
 import aiosqlite
 from app.config import DB_PATH
+from app.db.database import fetch_all
 from app.models.setting import Setting
 from app.services.bonjour import MAX_NAME_BYTES, NameInUseError, rename_service, service_display_name
 
@@ -12,13 +13,7 @@ router = APIRouter(prefix="/api/settings")
 
 @router.get("", response_model=List[Setting])
 async def get_settings():
-    async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute("SELECT * FROM settings ORDER BY key ASC")
-        rows = await cursor.fetchall()
-
-    #Convert each row to dict
-    return [dict(row) for row in rows]
+    return await fetch_all("SELECT * FROM settings ORDER BY key ASC")
 
 @router.post("")
 async def post_settings(request: Request, settings: List[Setting]):
@@ -29,7 +24,6 @@ async def post_settings(request: Request, settings: List[Setting]):
 
     async with aiosqlite.connect(DB_PATH) as db:
         for setting in settings:
-            # TODO: Check if libraries exist. If yes, they have to be deleted with all their files. 
             await db.execute("UPDATE settings SET value = ? WHERE key = ?", (setting.value, setting.key))
         await db.commit()
 

@@ -7,6 +7,17 @@
     gap: 40px 22px;                     /* rows leave room for the hover label */
 }
 
+/* VirtualGrid.tsx: the outer box has the height of all rows, the grid with the rendered rows sits at its offset */
+.virtualGrid {
+    position: relative;
+}
+
+.virtualGrid > * {
+    position: absolute;
+    left: 0;
+    right: 0;
+}
+
 /* Home videos: thumbnails are video frames */
 .mediaGrid.landscape {
     --card-min: 240px;

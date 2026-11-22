@@ -12,10 +12,9 @@ export const formatDuration = (seconds: number | null): string | null => {
     return `${minutes}:${secs.toString().padStart(2, "0")}`
 }
 
-// release_date is stored as unix seconds (negative before 1970), older data may contain a plain year
+// Dates are unix seconds (release_date is negative before 1970)
 export const formatYear = (releaseDate: number | null): string | null => {
-    if (!releaseDate) return null
-    if (releaseDate > 0 && releaseDate < 10000) return String(releaseDate)
+    if (releaseDate === null) return null
     return String(new Date(releaseDate * 1000).getUTCFullYear())
 }
 
@@ -23,8 +22,7 @@ export const pluralize = (count: number, singular: string, plural: string = `${s
     `${count.toLocaleString()} ${count === 1 ? singular : plural}`
 
 export const formatDate = (releaseDate: number | null): string | null => {
-    if (!releaseDate) return null
-    if (releaseDate > 0 && releaseDate < 10000) return String(releaseDate)
+    if (releaseDate === null) return null
     return new Date(releaseDate * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })
 }
 

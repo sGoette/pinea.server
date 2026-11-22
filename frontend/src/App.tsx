@@ -1,12 +1,12 @@
 // src/App.tsx
-import React, { useEffect, useState } from "react"
+import { createContext, useEffect, useState } from "react"
 import { Routes, Route } from "react-router"
 import useWebSocket from "react-use-websocket"
 import { LibraryBrowser } from "./LibraryBrowser"
 import { ToastProvider } from "./Toast"
 import { NotificationType, type Notification } from "./types/NotificationType"
 
-export const WebSocketContext = React.createContext({ timestamp: Date.now(), message: NotificationType.NONE })
+export const WebSocketContext = createContext({ timestamp: Date.now(), message: NotificationType.NONE })
 const SOCKET_URL = __WSURL__
 
 const App = () => {

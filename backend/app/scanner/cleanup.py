@@ -10,35 +10,23 @@ from app.models.notification import Notification, NOTIFICATION_TYPE
 import logging
 log = logging.getLogger(__name__)
 
+# Every column that holds a file name in POSTER_DIR
+REFERENCED_IMAGES_SQL = """
+SELECT poster_file_name FROM movies UNION
+SELECT still_file_name FROM movies UNION
+SELECT poster_file_name FROM collections UNION
+SELECT poster_file_name FROM people UNION
+SELECT poster_file_name FROM series
+"""
+
 async def cleanup_orphaned_posters():
-    poster_file_names: list[str] = []
     async with aiosqlite.connect(DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        async with db.execute("SELECT poster_file_name FROM movies WHERE poster_file_name IS NOT NULL") as movie_poster_cursor:
-            movie_poster_rows = await movie_poster_cursor.fetchall()
-            poster_file_names.extend([str(row["poster_file_name"]) for row in movie_poster_rows if row["poster_file_name"]])
+        async with db.execute(REFERENCED_IMAGES_SQL) as cursor:
+            file_names = [row[0] for row in await cursor.fetchall() if row[0]]
 
-        async with db.execute("SELECT still_file_name FROM movies WHERE still_file_name IS NOT NULL") as movie_still_cursor:
-            movie_still_rows = await movie_still_cursor.fetchall()
-            poster_file_names.extend([str(row["still_file_name"]) for row in movie_still_rows if row["still_file_name"]])
-
-        async with db.execute("SELECT poster_file_name FROM collections WHERE poster_file_name IS NOT NULL") as collection_poster_cursor: 
-            collection_poster_rows = await collection_poster_cursor.fetchall()
-            poster_file_names.extend([str(row["poster_file_name"]) for row in collection_poster_rows if row["poster_file_name"]])
-
-        async with db.execute("SELECT poster_file_name FROM people WHERE poster_file_name IS NOT NULL") as people_poster_cursor:
-            people_poster_rows = await people_poster_cursor.fetchall()
-            poster_file_names.extend([str(row["poster_file_name"]) for row in people_poster_rows if row["poster_file_name"]])
-
-        async with db.execute("SELECT poster_file_name FROM series WHERE poster_file_name IS NOT NULL") as series_poster_cursor:
-            series_poster_rows = await series_poster_cursor.fetchall()
-            poster_file_names.extend([str(row["poster_file_name"]) for row in series_poster_rows if row["poster_file_name"]])
-
-     
     referenced = set()
-
-    for poster_file_name in poster_file_names:
-        absolute_poster_path = Path(POSTER_DIR, poster_file_name).resolve()
+    for file_name in file_names:
+        absolute_poster_path = Path(POSTER_DIR, file_name).resolve()
         if absolute_poster_path.is_relative_to(POSTER_DIR):
             referenced.add(absolute_poster_path)
 
@@ -101,7 +89,6 @@ async def cleanup_orphaned_movies(force: bool = False):
             async with db.execute("SELECT id, file_location FROM movies WHERE library_id = ?", (library.id,)) as movie_cursor:
                 movie_rows = await movie_cursor.fetchall()
 
-            #We formated the file_location to utf-8, might be a problem here
             orphan_ids = [row["id"] for row in movie_rows if not (MEDIA_ROOT_FOLDER / row["file_location"]).is_file()]
             if not orphan_ids:
                 continue
@@ -113,7 +100,7 @@ async def cleanup_orphaned_movies(force: bool = False):
                 )
                 continue
 
-            #TODO: add forein keys, so other objects gets deleted as well.
+            # Links to people/collections and empty series are removed by the cleanups that run after this one
             await db.executemany("DELETE FROM movies WHERE id = ?", [(movie_id,) for movie_id in orphan_ids])
             await db.commit()
             deleted_any = True

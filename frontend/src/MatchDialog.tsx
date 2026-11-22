@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import axios from "axios"
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import MovieOutlinedIcon from '@mui/icons-material/MovieOutlined'
