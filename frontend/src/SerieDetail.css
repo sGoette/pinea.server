@@ -1,97 +1,60 @@
-/* Episode list of a season page */
-.episodeList {
+/* Season on the serie page: poster, name and stats above its episode row (like tvOS SeasonHeaderView) */
+.seasonHeader {
     display: flex;
-    flex-direction: column;
-    max-width: 960px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    border-top: 1px solid var(--border);
+    align-items: flex-end;
+    gap: 20px;
 }
 
-.episodeRow {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    padding: 14px 12px;
-    border-bottom: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    outline: none;
-    transition: background-color 0.15s;
-}
-
-.episodeRow:hover,
-.episodeRow:focus-visible {
-    background: var(--surface-2);
-}
-
-.episodeRow:focus-visible {
-    box-shadow: inset 0 0 0 2px var(--accent);
-}
-
-.episodeNumber {
+.seasonPoster {
     flex-shrink: 0;
-    width: 32px;
-    color: var(--text-faint);
-    font-size: 20px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    text-align: right;
+    height: 120px;                      /* tvOS 240 pt */
+    aspect-ratio: 0.6748 / 1;
+    overflow: hidden;
+    border-radius: var(--radius);
+    background: var(--placeholder);
+    box-shadow: var(--shadow-art);
 }
 
-.episodeText {
+.seasonPoster img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.seasonPoster .artPlaceholder svg {
+    font-size: 32px;
+}
+
+.seasonText {
     display: flex;
-    flex: 1;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
     min-width: 0;
 }
 
-.episodeTitle {
-    overflow: hidden;
-    font-size: 15px;
-    font-weight: 500;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-
-.episodeMeta {
+.seasonStats {
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: 13px;
 }
 
-.episodePlay {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border: none;
-    border-radius: 50%;
-    background: var(--accent);
-    color: var(--accent-text);
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.15s ease-out, background-color 0.15s;
+/* Episode row: every card 16:9 (stills; a portrait poster as fallback gets cropped) */
+.artShelf.episodeShelf {
+    --shelf-height: 160px;
+    --card-aspect: 16 / 9;
 }
 
-.episodePlay svg {
-    font-size: 24px;
+.artShelf.episodeShelf .cardMedia {
+    aspect-ratio: 16 / 9;
 }
 
-.episodeRow:hover .episodePlay,
-.episodeRow:focus-within .episodePlay {
-    opacity: 1;
+.artShelf.episodeShelf .cardMedia img {
+    width: 100%;
+    max-width: none;
 }
 
-.episodePlay:hover {
-    background: var(--accent-hover);
-}
-
-@media (hover: none) {
-    .episodePlay {
-        opacity: 1;
+@media (max-width: 640px) {
+    .artShelf.episodeShelf {
+        --shelf-height: 120px;
     }
 }

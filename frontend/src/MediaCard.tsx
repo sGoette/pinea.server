@@ -8,7 +8,7 @@ import type { Collection } from "./types/Collection"
 import type { LibraryPerson, MoviePerson, Person } from "./types/Person"
 import type { Serie } from "./types/Serie"
 import TvOutlinedIcon from '@mui/icons-material/TvOutlined'
-import { formatDuration, formatYear, pluralize, posterUrl } from "./format"
+import { formatDate, formatDuration, formatYear, pluralize, posterUrl } from "./format"
 import './MediaCard.css'
 
 /** Artwork first (design/DESIGN.md): only the image is visible, the label appears on hover/focus. */
@@ -106,17 +106,20 @@ export const SerieCard = (props: { serie: Serie, onOpen: (serie: Serie) => void 
     )
 }
 
-/** A season of a serie. The poster is the season poster (or the serie's), see SerieDetail. */
-export const SeasonCard = (props: { title: string, episodeCount: number, posterFileName: string | null, onOpen: () => void, onPlay?: () => void }) => (
-    <Card
-        title={props.title}
-        meta={[pluralize(props.episodeCount, "episode")]}
-        image={posterUrl(props.posterFileName, "thumb")}
-        placeholderIcon={<TvOutlinedIcon />}
-        onOpen={props.onOpen}
-        {...(props.onPlay ? { onPlay: props.onPlay } : {})}
-    />
-)
+/** Episode in a season row: always 16:9 (the still, else the poster cropped), "Episode 3: Title" like tvOS. */
+export const EpisodeCard = (props: { episode: Movie, onOpen: (episode: Movie) => void, onPlay: (episode: Movie) => void }) => {
+    const { episode } = props
+    return (
+        <Card
+            title={episode.episode !== null ? `Episode ${episode.episode}: ${episode.title}` : episode.title}
+            meta={[formatDate(episode.release_date), formatDuration(episode.length_in_seconds)]}
+            image={posterUrl(episode.still_file_name ?? episode.poster_file_name, "thumb")}
+            placeholderIcon={<MovieOutlinedIcon />}
+            onOpen={() => props.onOpen(episode)}
+            onPlay={() => props.onPlay(episode)}
+        />
+    )
+}
 
 /** Cast card: circular photo, name and character are always visible (the role is the information). */
 /** Cast card: name + character (or "Director"). */

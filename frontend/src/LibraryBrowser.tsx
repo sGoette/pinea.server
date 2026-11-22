@@ -74,7 +74,6 @@ export const LibraryBrowser = () => {
     const movieId = Number(params.get("movie")) || null      // detail page
     const personId = Number(params.get("person")) || null    // person page
     const serieId = Number(params.get("serie")) || null      // serie page (SERIES libraries)
-    const seasonParam = serieId !== null ? params.get("season") : null   // season page inside a serie
     const detailOpen = movieId !== null || personId !== null || serieId !== null
 
     const updateParams = useCallback((changes: Record<string, string | number | null>, replace = false) => {
@@ -235,19 +234,17 @@ export const LibraryBrowser = () => {
         if (!detailOpen) gridScroll.current = window.scrollY
         updateParams({ person: person.id, movie: null })
     }
-    // Series: serie -> season -> episode (movie detail). Each level is one history entry.
+    // Series: serie (all seasons) -> episode (movie detail). Each level is one history entry.
     const openSerie = (serie: Serie) => {
         if (!detailOpen) gridScroll.current = window.scrollY
         updateParams({ serie: serie.id, season: null, movie: null, person: null })
     }
-    const openSeason = (key: string) => updateParams({ season: key, movie: null, person: null })
     const closeDetail = useCallback(() => {
         // Opened inside the app -> browser back (keeps history clean). Opened from a link -> one level up.
         if ((window.history.state?.idx ?? 0) > 0) navigate(-1)
         else if (movieId !== null || personId !== null) updateParams({ movie: null, person: null }, true)
-        else if (seasonParam !== null) updateParams({ season: null }, true)
         else updateParams({ serie: null }, true)
-    }, [navigate, updateParams, movieId, personId, seasonParam])
+    }, [navigate, updateParams, movieId, personId])
     useLayoutEffect(() => {
         if (!detailOpen) window.scrollTo(0, gridScroll.current)
     }, [detailOpen])
@@ -485,9 +482,7 @@ export const LibraryBrowser = () => {
                     movieId === null && personId === null && serieId !== null &&
                     <SerieDetail
                         serieId={serieId}
-                        season={seasonParam}
                         onBack={closeDetail}
-                        onOpenSeason={openSeason}
                         onOpenEpisode={openMovie}
                         onPlay={playMovie}
                     />

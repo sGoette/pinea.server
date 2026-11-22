@@ -6,41 +6,52 @@ import { WebSocketContext } from "./App"
 import { NotificationType } from "./types/NotificationType"
 import type { Movie } from "./types/Movie"
 import type { Serie } from "./types/Serie"
-import { SeasonCard } from "./MediaCard"
+import { EpisodeCard } from "./MediaCard"
 import { DetailHeader, DetailPage } from "./DetailPage"
-import { formatDate, formatDuration, formatYear, pluralize, posterUrl, seasonLabel } from "./format"
+import { formatDuration, formatYear, pluralize, posterUrl, seasonLabel } from "./format"
 import './SerieDetail.css'
 
 const REFRESH_DEBOUNCE_MS = 800
 
-/** URL value of a season: its name, or "none" for episodes without a season */
-export const seasonKey = (season: string | null) => season ?? "none"
-
 type Season = { key: string, season: string | null, episodes: Movie[], posterFileName: string | null }
 
-/** Seasons from the episodes (like tvOS): numeric order, specials (0) last, episodes without a season at the very end. */
-const buildSeasons = (episodes: Movie[], seriePoster: string | null): Season[] => {
-    const bySeason = new Map<string, Season>()
+/** Specials (season 0) */
+const isSpecials = (season: string | null) => season !== null && /^0+$/.test(season)
+
+/**
+ * The season poster (same rule as tvOS): scrapers store the season poster on every episode they matched
+ * (those also have a still). Otherwise a poster that several episodes share, else the serie's poster
+ * (frame grabs are one per episode, they don't stand for the season).
+ */
+const seasonPoster = (episodes: Movie[], seriePoster: string | null): string | null => {
+    const scraped = episodes.find(episode => episode.still_file_name !== null && episode.poster_file_name !== null)
+    if (scraped) return scraped.poster_file_name
+    const counts = new Map<string, number>()
     for (const episode of episodes) {
-        const key = seasonKey(episode.season)
-        let season = bySeason.get(key)
-        if (!season) {
-            season = { key, season: episode.season, episodes: [], posterFileName: null }
-            bySeason.set(key, season)
-        }
-        season.episodes.push(episode)
+        if (episode.poster_file_name) counts.set(episode.poster_file_name, (counts.get(episode.poster_file_name) ?? 0) + 1)
+    }
+    const [ shared, count ] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] ?? [ null, 0 ]
+    return shared !== null && count > 1 ? shared : seriePoster
+}
+
+/** Seasons from the episodes: numeric order, specials (0) last, episodes without a season at the very end. */
+const buildSeasons = (episodes: Movie[], seriePoster: string | null): Season[] => {
+    const bySeason = new Map<string, Movie[]>()
+    for (const episode of episodes) {
+        const key = episode.season ?? "none"
+        bySeason.set(key, [...(bySeason.get(key) ?? []), episode])
     }
     const rank = (season: string | null) => {
         if (season === null) return Number.MAX_SAFE_INTEGER
-        if (/^0+$/.test(season)) return Number.MAX_SAFE_INTEGER - 1
+        if (isSpecials(season)) return Number.MAX_SAFE_INTEGER - 1
         return /^\d+$/.test(season) ? Number(season) : Number.MAX_SAFE_INTEGER - 2
     }
-    return [...bySeason.values()]
-        .map(season => ({
-            ...season,
-            episodes: [...season.episodes].sort((a, b) => (a.episode ?? Infinity) - (b.episode ?? Infinity) || a.title.localeCompare(b.title)),
-            // The scrapers store the season poster on every episode. Without one: the serie's poster.
-            posterFileName: season.episodes.find(episode => episode.poster_file_name)?.poster_file_name ?? seriePoster,
+    return [...bySeason.entries()]
+        .map(([ key, seasonEpisodes ]) => ({
+            key,
+            season: seasonEpisodes[0]!.season,
+            episodes: [...seasonEpisodes].sort((a, b) => (a.episode ?? Infinity) - (b.episode ?? Infinity) || a.title.localeCompare(b.title)),
+            posterFileName: seasonPoster(seasonEpisodes, seriePoster),
         }))
         .sort((a, b) => rank(a.season) - rank(b.season) || (a.season ?? "").localeCompare(b.season ?? ""))
 }
@@ -52,15 +63,19 @@ const yearRange = (episodes: Movie[]): string | null => {
     return first === last ? String(first) : `${first}–${last}`
 }
 
+/** "10 episodes · 2019–2020 · 7 h 30 min" */
+const seasonStats = (episodes: Movie[]): string => {
+    const totalSeconds = episodes.reduce((sum, episode) => sum + (episode.length_in_seconds ?? 0), 0)
+    return [pluralize(episodes.length, "episode"), yearRange(episodes), formatDuration(totalSeconds)].filter(Boolean).join(" · ")
+}
+
 /**
- * Serie page (season = null): poster, title, seasons.
- * Season page: season poster, its episodes as a list. An episode opens the movie detail page (with cast).
+ * Serie page (like tvOS): poster, title, then all seasons on one page. Each season has a header
+ * (season poster, name, stats) and a row of 16:9 episode cards. An episode opens the movie detail page (with cast).
  */
 export const SerieDetail = (props: {
     serieId: number
-    season: string | null
     onBack: () => void
-    onOpenSeason: (key: string) => void
     onOpenEpisode: (episode: Movie) => void
     onPlay: (episode: Movie) => void
 }) => {
@@ -98,105 +113,48 @@ export const SerieDetail = (props: {
         return () => { if (timer.current) window.clearTimeout(timer.current) }
     }, [websocketMessage, load])
 
-    // Serie page <-> season page reuse this component: start each level at the top
-    useEffect(() => { window.scrollTo(0, 0) }, [props.season])
-
     const seasons = useMemo(() => buildSeasons(episodes, serie?.poster_file_name ?? null), [episodes, serie])
 
     if (error) return <DetailPage onBack={props.onBack}><p className="contentHint">{error}</p></DetailPage>
     if (!serie) return <DetailPage onBack={props.onBack}><p className="contentHint">Loading…</p></DetailPage>
 
-    // --- Season page ---
-    if (props.season !== null) {
-        const season = seasons.find(s => s.key === props.season)
-        if (!season) return <DetailPage onBack={props.onBack}><p className="contentHint">This season has no episodes anymore.</p></DetailPage>
-        const first = season.episodes[0]
-        return (
-            <DetailPage onBack={props.onBack}>
-                <DetailHeader
-                    image={posterUrl(season.posterFileName)}
-                    placeholderIcon={<TvOutlinedIcon />}
-                    eyebrow={serie.title}
-                    title={seasonLabel(season.season)}
-                    meta={[pluralize(season.episodes.length, "episode"), yearRange(season.episodes)]}
-                    actions={first && <button className="btn btn-primary btnLarge" onClick={() => props.onPlay(first)}><PlayArrowRoundedIcon /> Play</button>}
-                />
-                <section className="detailSection">
-                    <h2>Episodes</h2>
-                    <ol className="episodeList">
-                        { season.episodes.map(episode => <EpisodeRow key={episode.id} episode={episode} onOpen={props.onOpenEpisode} onPlay={props.onPlay} />) }
-                    </ol>
-                </section>
-            </DetailPage>
-        )
-    }
-
-    // --- Serie page ---
     // Play starts with the first regular season (not the specials)
-    const firstSeason = seasons.find(s => s.season !== null && !/^0+$/.test(s.season)) ?? seasons[0]
-    const firstEpisode = firstSeason?.episodes[0]
-    const regularSeasons = seasons.filter(s => s.season !== null && !/^0+$/.test(s.season)).length
+    const regularSeasons = seasons.filter(s => s.season !== null && !isSpecials(s.season))
+    const firstEpisode = (regularSeasons[0] ?? seasons[0])?.episodes[0]
     return (
         <DetailPage onBack={props.onBack}>
             <DetailHeader
                 image={posterUrl(serie.poster_file_name)}
                 placeholderIcon={<TvOutlinedIcon />}
                 title={serie.title}
-                meta={[regularSeasons > 0 ? pluralize(regularSeasons, "season") : null, pluralize(episodes.length, "episode"), yearRange(episodes)]}
+                meta={[regularSeasons.length > 0 ? pluralize(regularSeasons.length, "season") : null, episodes.length > 0 ? pluralize(episodes.length, "episode") : null, yearRange(episodes)]}
                 actions={firstEpisode && <button className="btn btn-primary btnLarge" onClick={() => props.onPlay(firstEpisode)}><PlayArrowRoundedIcon /> Play</button>}
             />
             {
-                seasons.length > 0
-                ? <section className="detailSection">
-                    <h2>Seasons</h2>
-                    <div className="mediaGrid">
-                        {
-                            seasons.map(season => (
-                                <SeasonCard
-                                    key={season.key}
-                                    title={seasonLabel(season.season)}
-                                    episodeCount={season.episodes.length}
-                                    posterFileName={season.posterFileName}
-                                    onOpen={() => props.onOpenSeason(season.key)}
-                                />
-                            ))
-                        }
-                    </div>
-                </section>
-                : <p className="contentHint">No episodes found for this serie.</p>
+                seasons.length === 0 && <p className="contentHint">No episodes found for this serie.</p>
+            }
+            {
+                seasons.map(season => (
+                    <section key={season.key} className="detailSection">
+                        <div className="seasonHeader">
+                            <div className="seasonPoster">
+                                {
+                                    season.posterFileName
+                                    ? <img src={posterUrl(season.posterFileName, "thumb") ?? undefined} alt="" loading="lazy" decoding="async" />
+                                    : <div className="artPlaceholder"><TvOutlinedIcon /></div>
+                                }
+                            </div>
+                            <div className="seasonText">
+                                <h2>{seasonLabel(season.season)}</h2>
+                                <span className="seasonStats">{seasonStats(season.episodes)}</span>
+                            </div>
+                        </div>
+                        <div className="shelf artShelf episodeShelf">
+                            { season.episodes.map(episode => <EpisodeCard key={episode.id} episode={episode} onOpen={props.onOpenEpisode} onPlay={props.onPlay} />) }
+                        </div>
+                    </section>
+                ))
             }
         </DetailPage>
-    )
-}
-
-/** One row of the episode list: number, title, air date · duration. Opens the episode, play button plays it. */
-const EpisodeRow = (props: { episode: Movie, onOpen: (episode: Movie) => void, onPlay: (episode: Movie) => void }) => {
-    const { episode } = props
-    const meta = [formatDate(episode.release_date), formatDuration(episode.length_in_seconds)].filter(Boolean).join(" · ")
-    return (
-        <li>
-            <div
-                className="episodeRow"
-                role="button"
-                tabIndex={0}
-                onClick={() => props.onOpen(episode)}
-                onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); props.onOpen(episode) } }}
-            >
-                <span className="episodeNumber">{episode.episode ?? "–"}</span>
-                <span className="episodeText">
-                    <span className="episodeTitle">{episode.title}</span>
-                    { meta && <span className="episodeMeta">{meta}</span> }
-                </span>
-                <button
-                    className="episodePlay"
-                    title="Play"
-                    aria-label={`Play ${episode.title}`}
-                    onClick={event => { event.stopPropagation(); props.onPlay(episode) }}
-                    onKeyDown={event => event.stopPropagation()}
-                >
-                    <PlayArrowRoundedIcon />
-                </button>
-            </div>
-        </li>
     )
 }

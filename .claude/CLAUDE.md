@@ -50,7 +50,7 @@ frontend/
   src/MovieDetail.tsx       # movie detail page (?movie=<id>): header, cast & crew, extras, collections, details
   src/PersonDetail.tsx      # person page (?person=<id>): photo, name, their titles
   src/JustifiedGrid.tsx     # justified rows (each poster in its own ratio); gridLayout.ts picks grid/justified per library type
-  src/SerieDetail.tsx       # serie page (?serie=) with seasons, season page (&season=) with the episode list
+  src/SerieDetail.tsx       # serie page (?serie=): all seasons on one page, each a header + row of 16:9 episode cards
   src/DetailPage.tsx        # shared frame (back, poster tint) + header of detail pages
   src/MatchDialog.tsx       # "Find match": all scraper hits for a movie, pick one to apply
   src/LibraryDialog.tsx, SettingsDialog.tsx, UpdatePanel.tsx, Folder.tsx (folder picker), Dialog.tsx, Toast.tsx
@@ -187,7 +187,7 @@ The tvOS app depends on these shapes. Treat response models as a public contract
 - **Design rules: [`design/DESIGN.md`](../design/DESIGN.md). Read it before any UI work.** The tvOS app is the design master;
   update DESIGN.md when a design decision is made. Logo: `design/logo.svg`.
 - One page (`LibraryBrowser`). State lives in the URL query: `library`, `view=all|people` (default: collections), `sort=movies` (people view, default: name),
-  `collection`, `movie` (detail page), `person` (person page), `serie` + `season` (SERIES libraries), `play`. Cards open the detail page; the grid stays
+  `collection`, `movie` (detail page), `person` (person page), `serie` (SERIES libraries), `play`. Cards open the detail page; the grid stays
   mounted (hidden) behind detail pages so its scroll position survives. Reload keeps the place and the browser's back button works (it also closes the player).
 - Dark theme only. Colors, radii and spacing are CSS variables in `styles.css` (the web copy of the tvOS assets, see DESIGN.md). Use them instead of hard-coded values.
 - WebSocket `MOVIES_UPDATED` arrives once per file during scans, so the UI debounces refetches (800 ms).

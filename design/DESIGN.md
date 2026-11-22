@@ -116,18 +116,20 @@ Same header as the movie detail: the person's portrait, name, actions **Play All
 Below it, a grid of their movies.
 
 ### Series
-tvOS: same header with the serie poster and the subtitle "N Seasons", then **all seasons on one page**, each as a
-horizontal shelf of 16:9 episode cards. An episode opens the movie detail view (with cast).
+tvOS and web: same header with the serie poster, subtitle "N seasons · M episodes" (web also: years), then
+**all seasons on one page**. Each season: a header (season poster, "Season N" / "Specials" / "Other episodes",
+"N episodes · years · runtime"), then a horizontal row of **16:9 episode cards** (the episode still, else the poster
+cropped; label "Episode 3: Title"). An episode opens the movie detail view (with cast).
 
-Web (four levels, each its own URL and history entry):
+- **Season poster:** the poster of an episode that also has a still (scrapers store the season poster on every
+  matched episode), else a poster several episodes share, else the serie's poster (frame grabs are one per episode).
+- **Order:** seasons numeric, episodes by number. Web: Specials (season 0) and episodes without a season come last.
+
+Web (three levels, each its own URL and history entry):
 1. **Library** (SERIES type): only the series as a poster grid ("N seasons" on hover). Files the scraper couldn't
    assign to a serie are listed below under "Not assigned to a series", so nothing disappears.
-2. **Serie** (`?serie=`): detail header (poster, title, seasons · episodes · years, Play = first episode of the
-   first regular season), then the seasons as a poster grid. Season poster = the poster of its episodes (the TMDB
-   scraper stores the season poster there), else the serie's. Specials (season 0) come last.
-3. **Season** (`&season=`): detail header with the season poster (serie name above the title, Play = first
-   episode), then the **episode list**: number, title, air date · duration, play button on hover.
-4. **Episode** (`?movie=`): the movie detail page with cast. Above the title: serie · season · episode.
+2. **Serie** (`?serie=`): as above. Play = first episode of the first regular season.
+3. **Episode** (`?movie=`): the movie detail page with cast. Above the title: serie · season · episode.
 
 ---
 
