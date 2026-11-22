@@ -32,15 +32,12 @@ async def process_movie(absolute_file_path: Path, library_id: int) -> Optional[M
 async def add_movie_to_db(library_id: int, absolute_file_path: Path) -> Optional[Movie]:
     relative_path = Path(os.path.relpath(absolute_file_path, await GET_MEDIA_ROOT_FOLDER()))
     movie_title = smart_title(absolute_file_path.stem)
-    movie_stat = absolute_file_path.stat()
 
     length_in_seconds: float = 0.0
     width: int = 0
     height: int = 0
     codec: str = ""
     format_name: str = ""
-    # st_birthtime exists on FreeBSD/macOS but not on Linux -> fall back to the modification time
-    added_date = int(getattr(movie_stat, "st_birthtime", None) or movie_stat.st_mtime)
 
     try:
         file_metadata = await get_video_file_metadata(absolute_file_path)
@@ -60,8 +57,8 @@ async def add_movie_to_db(library_id: int, absolute_file_path: Path) -> Optional
         db.row_factory = aiosqlite.Row
         async with db.execute("""
 INSERT INTO movies (title, file_location, length_in_seconds, width, height, codec, format, library_id, added_date)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-""", (movie_title, str(relative_path), length_in_seconds, width, height, codec, format_name, library_id, added_date)) as cursor: 
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, unixepoch())
+""", (movie_title, str(relative_path), length_in_seconds, width, height, codec, format_name, library_id)) as cursor: 
             new_movie_id = cursor.lastrowid
         await db.commit()
 

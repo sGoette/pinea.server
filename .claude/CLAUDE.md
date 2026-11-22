@@ -124,7 +124,7 @@ Current schema version: 1.
   `media_folder` is **relative to MEDIA_ROOT_FOLDER**.
 - **movies**(id PK, title, file_location TEXT UNIQUE, length_in_seconds REAL, width, height, codec,
   format, poster_file_name, library_id → libraries CASCADE, metadata_last_updated INT (unix),
-  release_date INT, added_date INT NOT NULL (file birth time, or mtime on Linux), is_extra_of_movie_id → movies,
+  release_date INT, added_date INT NOT NULL (unix time when the scanner first found the file, never updated), is_extra_of_movie_id → movies,
   extra_type `TRAILER|BEHIND_THE_SCENES|MAKING_OFF`, is_episode_of_serie_id → series, episode INT,
   season TEXT, is_extra_of_serie_id → series)
   `file_location` is **relative to MEDIA_ROOT_FOLDER**. Episodes and extras are rows in `movies` too.
@@ -154,6 +154,7 @@ opens its own `aiosqlite.connect(DB_PATH)` without it.
 | POST | `/api/library` | update (`Library`) |
 | DELETE | `/api/library/{id}` | delete (cascade), queues a scan (for cleanup) |
 | GET | `/api/movies/{library_id}` | non-extra movies of library |
+| GET | `/api/movies/{library_id}/latest` | the 20 newest non-extra movies of a library, `added_date` desc (then id desc) |
 | GET | `/api/movies/collection/{collection_id}` | movies in a collection |
 | GET | `/api/movies/person/{person_id}` | movies of a person |
 | GET | `/api/movie/{id}` | one movie |
@@ -224,7 +225,7 @@ The tvOS app depends on these shapes. Treat response models as a public contract
    the files whose closest `__pinea.json` is that one (folders with their own `__pinea.json` are skipped) and fetches
    their metadata again. For a config above the library folder that means the whole library, unless one sits in between.
 7. After every job (also when the scan failed halfway, each cleanup on its own): `cleanup_orphaned_movies` (deletes movies whose file is gone, with safety guards, see
-   gotchas), then collections without (non-extra) movies, then people without movies, then poster files not referenced in the DB.
+   gotchas), then collections without (non-extra) movies, then series without episodes, then people without movies, then poster files not referenced in the DB.
 
 ## Deployment
 
@@ -281,7 +282,9 @@ The tvOS app depends on these shapes. Treat response models as a public contract
 
 ## Known pitfalls / gotchas
 
-- `added_date` uses `st_birthtime` where it exists (FreeBSD/macOS), otherwise `st_mtime` (Linux).
+- `added_date` is set once with `unixepoch()` when the scanner inserts the movie row and never changes while the row
+  exists (a rebuild keeps it). File times are useless for this: Linux has no birth time and copy tools keep old mtimes.
+  A file that is moved or renamed becomes a new row and gets a new date. Rows from before this change keep their old file-time dates.
 - Orphan cleanup (`scanner/cleanup.py`) skips libraries whose folder is missing or empty (not mounted)
   and refuses to delete more than 50% of a library (≥ 20 movies) unless the scan is started with
   `force_cleanup=true`. Don't weaken this: the original behaviour wiped the whole DB on a missing mount.

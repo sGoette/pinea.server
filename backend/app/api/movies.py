@@ -21,6 +21,24 @@ async def get_movies(library_id: int):
     #Convert each row to dict
     return [dict(row) for row in rows]
 
+LATEST_MOVIES_LIMIT = 20
+
+@router.get("/{library_id}/latest", response_model=List[Movie])
+async def get_latest_movies(library_id: int):
+    """The newest titles of a library (no extras), newest first. added_date is when the scanner first found the file."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        # id as tie breaker: a scan adds many files within the same second
+        async with db.execute("""
+SELECT * FROM movies
+WHERE is_extra_of_movie_id IS NULL AND library_id = ?
+ORDER BY added_date DESC, id DESC
+LIMIT ?
+""", (library_id, LATEST_MOVIES_LIMIT)) as cursor:
+            rows = await cursor.fetchall()
+
+    return [dict(row) for row in rows]
+
 @router.get("/collection/{collection_id}", response_model=List[Movie])
 async def get_movies_of_collection(collection_id):
     async with aiosqlite.connect(DB_PATH) as db: 
