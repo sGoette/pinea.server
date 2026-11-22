@@ -49,7 +49,7 @@ frontend/
   src/PlayerOverlay.tsx     # fullscreen <video> overlay (?play=<id>), closes with ✕ / Esc / back
   src/MovieDetail.tsx       # movie detail page (?movie=<id>): header, cast & crew, extras, collections, details
   src/PersonDetail.tsx      # person page (?person=<id>): photo, name, their titles
-  src/JustifiedGrid.tsx     # justified rows (fixed height, portrait or 16:9 cards, dynamic gaps); gridLayout.ts picks grid/justified per library type
+  src/JustifiedGrid.tsx     # justified rows (image-search style: fixed height + gaps, portrait/16:9 cards flex in width); gridLayout.ts picks grid/justified per library type
   src/SerieDetail.tsx       # serie page (?serie=): all seasons on one page, each a header + row of 16:9 episode cards
   src/DetailPage.tsx        # shared frame (back, poster tint) + header of detail pages
   src/MatchDialog.tsx       # "Find match": all scraper hits for a movie, pick one to apply
