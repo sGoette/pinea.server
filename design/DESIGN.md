@@ -191,8 +191,10 @@ never hard-code them in components.
   (whole poster inside a fixed slot).
 - **Collections are always portrait** (0.6748 : 1, like movie posters), in every library type and on the
   detail page's collections shelf; their artwork is cropped to that ratio.
-- **Library grids per library type** (`frontend/src/gridLayout.ts`): `justified` = rows of equal height that
-  fill the width, every poster in its own ratio (VIDEOS: mixed portrait and landscape); `grid` = fixed
+- **Library grids per library type** (`frontend/src/gridLayout.ts`): `justified` = rows of one fixed
+  height that fill the width (VIDEOS: mixed portrait and landscape). Every card is either portrait (0.6748 : 1) or
+  16:9, whichever is closer to its image (cropped into it). A row takes as many cards as fit with the smallest gap,
+  the rest of the width is spread over its gaps (dynamic spacing); the last row is left-aligned; `grid` = fixed
   columns, cropped to the library's card ratio (MOVIES, SERIES: posters are portrait anyway). Compare on any library with `?layout=grid` / `?layout=justified`.
 - **No file names in the UI chrome.** The file location is debug information: it only appears in the
   technical details of a detail page, never as a title or subtitle. Detail header subtitle:
@@ -200,6 +202,6 @@ never hard-code them in components.
 - The tvOS app is still in development. When it and this file disagree, ask which one is right.
 
 ## 7. Open questions
-- [ ] Justified rows (on for VIDEOS): If yes: store poster sizes on the server, so rows don't adjust while posters load.
+- [ ] Justified rows (on for VIDEOS): If yes: store the poster format (portrait/landscape) on the server, so rows don't adjust while posters load.
 - [ ] tvOS `Person` decodes `order`, the server sends `sort_order` → rename it in the tvOS model.
       (Nothing breaks meanwhile, because the field is optional and the list is already sorted.)

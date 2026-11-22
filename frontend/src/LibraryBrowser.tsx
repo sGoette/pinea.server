@@ -29,7 +29,7 @@ import { SerieDetail } from "./SerieDetail"
 import { useToast } from "./Toast"
 import { useScanStatus } from "./useScanStatus"
 import { pluralize, posterUrl } from "./format"
-import { JustifiedGrid } from "./JustifiedGrid"
+import { JustifiedGrid, LANDSCAPE_RATIO, PORTRAIT_RATIO } from "./JustifiedGrid"
 import { gridLayoutFor } from "./gridLayout"
 import './LibraryBrowser.css'
 import logoUrl from '../../design/logo.svg'
@@ -381,7 +381,7 @@ export const LibraryBrowser = () => {
                 items={visibleMovies}
                 getKey={movieKey}
                 getImage={movieImage}
-                defaultRatio={landscape ? 16 / 9 : 0.6748}
+                defaultRatio={landscape ? LANDSCAPE_RATIO : PORTRAIT_RATIO}
                 renderItem={(movie, onImageRatio) => <MovieCard movie={movie} onOpen={openMovie} onPlay={playMovie} onImageRatio={onImageRatio} />}
             />
         }

@@ -5,70 +5,60 @@ import './JustifiedGrid.css'
 // coming back to a library doesn't reflow again.
 const ratioCache = new Map<string, number>()
 
-// Extreme formats would make rows look broken: clamp them (the image is cropped a bit then)
-const MIN_RATIO = 0.5
-const MAX_RATIO = 2.4
+// Only two card formats (design/DESIGN.md): portrait like movie posters, or 16:9 like video frames.
+// Every image is snapped to the closer one and cropped into it.
+export const PORTRAIT_RATIO = 0.6748
+export const LANDSCAPE_RATIO = 16 / 9
 
-const clampRatio = (ratio: number) => Math.min(MAX_RATIO, Math.max(MIN_RATIO, ratio))
+const snapRatio = (ratio: number) => ratio < 1 ? PORTRAIT_RATIO : LANDSCAPE_RATIO
 
-/** Target row height and gap for a container width. Rows end up this high or a bit lower. */
+/** Card height and smallest gap for a container width. All cards have this height. */
 const metrics = (width: number) => {
     if (width < 600) return { rowHeight: 150, gap: 10 }
-    if (width < 1100) return { rowHeight: 200, gap: 12 }
-    return { rowHeight: 250, gap: 14 }
+    if (width < 1100) return { rowHeight: 200, gap: 14 }
+    return { rowHeight: 240, gap: 16 }
 }
 
 type Box = { left: number, top: number, width: number, height: number }
 
-/** Justified layout: fill a row until it would be lower than `rowHeight` when scaled to the full
- *  width, then end it with or without the last item, whichever height is closer to `rowHeight`.
- *  The last row keeps the target height and is left-aligned. */
+/** Rows of fixed height: a row takes as many cards as fit with the smallest gap, then the space
+ *  that is left is spread over its gaps (dynamic spacing), so every row fills the full width.
+ *  The last row (and a row with a single card) keeps the smallest gap and is left-aligned. */
 const computeLayout = (ratios: number[], width: number, rowHeight: number, gap: number): { boxes: Box[], height: number } => {
     const boxes: Box[] = []
     let top = 0
     let start = 0
-    let ratioSum = 0
+    let rowWidth = 0      // card widths of the current row, without gaps
 
-    const placeRow = (end: number, height: number) => {
+    const placeRow = (end: number, isLast: boolean) => {
+        const count = end - start
+        const rowGap = isLast || count < 2 ? gap : (width - rowWidth) / (count - 1)
         let left = 0
         for (let i = start; i < end; i++) {
-            const itemWidth = ratios[i]! * height
-            boxes.push({ left, top, width: itemWidth, height })
-            left += itemWidth + gap
+            const itemWidth = Math.min(width, ratios[i]! * rowHeight)
+            boxes.push({ left, top, width: itemWidth, height: rowHeight })
+            left += itemWidth + rowGap
         }
-        top += height + gap
+        top += rowHeight + gap
         start = end
-        ratioSum = 0
+        rowWidth = 0
     }
 
     for (let i = 0; i < ratios.length; i++) {
-        const ratio = ratios[i]!
-        const height = (width - gap * (i - start)) / (ratioSum + ratio)
-        if (height > rowHeight) {
-            ratioSum += ratio
-            continue
+        const itemWidth = ratios[i]! * rowHeight
+        if (i > start && rowWidth + itemWidth + gap * (i - start) > width) {
+            placeRow(i, false)     // card i doesn't fit anymore: it starts the next row
         }
-        // With item i the row gets lower than the target, without it higher: take the closer one
-        // (but don't let rows grow much above the target).
-        const heightWithout = i > start ? (width - gap * (i - 1 - start)) / ratioSum : Infinity
-        if (heightWithout - rowHeight < rowHeight - height && heightWithout <= rowHeight * 1.3) {
-            placeRow(i, heightWithout)
-            i--     // item i starts the next row
-        } else {
-            ratioSum += ratio
-            placeRow(i + 1, height)
-        }
+        rowWidth += itemWidth
     }
-    if (start < ratios.length) {
-        const gaps = gap * (ratios.length - 1 - start)
-        placeRow(ratios.length, Math.min(rowHeight, (width - gaps) / ratioSum))
-    }
+    if (start < ratios.length) placeRow(ratios.length, true)
 
     return { boxes, height: Math.max(0, top - gap) }
 }
 
 /**
- * Rows of equal height that fill the full width, every item in its image's own aspect ratio.
+ * Rows of equal height that fill the full width. Every card is portrait or 16:9, whichever is closer
+ * to its image; the gaps between the cards absorb the rest of the row.
  * Items are positioned absolutely and keep their React key, so a reflow (resize, an image's real
  * size becoming known) never remounts them.
  */
@@ -100,8 +90,9 @@ export const JustifiedGrid = <T,>(props: {
     const reportRatio = useCallback((image: string | null, ratio: number) => {
         if (!image || !Number.isFinite(ratio) || ratio <= 0) return
         const previous = ratioCache.get(image)
-        if (previous !== undefined && Math.abs(previous - ratio) < 0.005) return
         ratioCache.set(image, ratio)
+        // Only a change of the format (portrait <-> landscape) moves cards
+        if (previous !== undefined && snapRatio(previous) === snapRatio(ratio)) return
         if (frame.current === null) {
             frame.current = requestAnimationFrame(() => {
                 frame.current = null
@@ -113,7 +104,7 @@ export const JustifiedGrid = <T,>(props: {
     const { getImage, defaultRatio } = props
     const layout = useMemo(() => {
         if (width <= 0) return { boxes: [], height: 0 }
-        const ratios = props.items.map(item => clampRatio(ratioCache.get(getImage(item) ?? "") ?? defaultRatio))
+        const ratios = props.items.map(item => snapRatio(ratioCache.get(getImage(item) ?? "") ?? defaultRatio))
         const { rowHeight, gap } = metrics(width)
         return computeLayout(ratios, width, rowHeight, gap)
     // ratioVersion: recompute when measured ratios changed
