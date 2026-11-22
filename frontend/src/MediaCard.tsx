@@ -18,6 +18,7 @@ const Card = (props: {
     image: string | null
     placeholderIcon: ReactNode
     placeholderTitle?: boolean     // write the title on the placeholder (when there is no image)
+    caption?: boolean              // title always visible under the image (VIDEOS: stills say little on their own)
     className?: string
     onOpen: () => void
     onPlay?: () => void
@@ -26,7 +27,7 @@ const Card = (props: {
     const meta = props.meta.filter(Boolean).join(" · ")
     return (
         <div
-            className={props.className ? `card ${props.className}` : "card"}
+            className={["card", props.caption ? "captioned" : null, props.className].filter(Boolean).join(" ")}
             role="button"
             tabIndex={0}
             aria-label={meta ? `${props.title}, ${meta}` : props.title}
@@ -69,7 +70,7 @@ const Card = (props: {
     )
 }
 
-export const MovieCard = (props: { movie: Movie, onOpen: (movie: Movie) => void, onPlay: (movie: Movie) => void, meta?: (string | null)[], onImageRatio?: ((ratio: number) => void) | undefined }) => {
+export const MovieCard = (props: { movie: Movie, onOpen: (movie: Movie) => void, onPlay: (movie: Movie) => void, meta?: (string | null)[], caption?: boolean, onImageRatio?: ((ratio: number) => void) | undefined }) => {
     const { movie } = props
     return (
         <Card
@@ -77,6 +78,7 @@ export const MovieCard = (props: { movie: Movie, onOpen: (movie: Movie) => void,
             meta={props.meta ?? [formatYear(movie.release_date), formatDuration(movie.length_in_seconds)]}
             image={posterUrl(movie.poster_file_name, "thumb")}
             placeholderIcon={<MovieOutlinedIcon />}
+            caption={props.caption ?? false}
             onOpen={() => props.onOpen(movie)}
             onPlay={() => props.onPlay(movie)}
             onImageRatio={props.onImageRatio}

@@ -352,7 +352,7 @@ export const LibraryBrowser = () => {
                     <section className="unassignedSection">
                         <h2>Not assigned to a series</h2>
                         <div className="mediaGrid">
-                            { visibleMovies.map(movie => <MovieCard key={movie.id} movie={movie} onOpen={openMovie} onPlay={playMovie} />) }
+                            { visibleMovies.map(movie => <MovieCard key={movie.id} movie={movie} onOpen={openMovie} onPlay={playMovie} caption={landscape} />) }
                         </div>
                     </section>
                 }
@@ -382,7 +382,8 @@ export const LibraryBrowser = () => {
                 getKey={movieKey}
                 getImage={movieImage}
                 defaultRatio={landscape ? LANDSCAPE_RATIO : PORTRAIT_RATIO}
-                renderItem={(movie, onImageRatio) => <MovieCard movie={movie} onOpen={openMovie} onPlay={playMovie} onImageRatio={onImageRatio} />}
+                captionSpace={landscape ? 16 : 0}
+                renderItem={(movie, onImageRatio) => <MovieCard movie={movie} onOpen={openMovie} onPlay={playMovie} caption={landscape} onImageRatio={onImageRatio} />}
             />
         }
 

@@ -78,6 +78,7 @@ export const JustifiedGrid = <T,>(props: {
     getKey: (item: T) => Key
     getImage: (item: T) => string | null
     defaultRatio: number                                     // until an image has loaded, and for items without one
+    captionSpace?: number                                    // extra room between rows for always visible captions
     renderItem: (item: T, onImageRatio: (ratio: number) => void) => ReactNode
 }) => {
     const container = useRef<HTMLDivElement>(null)
@@ -112,15 +113,15 @@ export const JustifiedGrid = <T,>(props: {
         }
     }, [])
 
-    const { getImage, defaultRatio } = props
+    const { getImage, defaultRatio, captionSpace = 0 } = props
     const layout = useMemo(() => {
         if (width <= 0) return { boxes: [], height: 0 }
         const ratios = props.items.map(item => snapRatio(ratioCache.get(getImage(item) ?? "") ?? defaultRatio))
         const { rowHeight, gap, rowGap } = metrics(width)
-        return computeLayout(ratios, width, rowHeight, gap, rowGap)
+        return computeLayout(ratios, width, rowHeight, gap, rowGap + captionSpace)
     // ratioVersion: recompute when measured ratios changed
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [props.items, width, ratioVersion, getImage, defaultRatio])
+    }, [props.items, width, ratioVersion, getImage, defaultRatio, captionSpace])
 
     return (
         <div ref={container} className="justifiedGrid" style={{ height: layout.height }}>

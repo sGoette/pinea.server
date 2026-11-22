@@ -180,6 +180,9 @@ never hard-code them in components.
   grids, rows and cast use thumbnails (`posterUrl(name, "thumb")`), full-size posters only in detail headers.
 - **Artwork first.** Labels are hidden in grids and appear on hover/focus. Layouts should celebrate
   posters and stills: big images, little chrome.
+  Exception: **VIDEOS libraries** (home videos have stills, not posters) show the title at all times as a quiet
+  caption under the image (muted, 13 px, one line, no background). On hover the caption moves with the growing
+  image, the title turns white and year · duration fade in next to it.
 - **Background:** only a subtle **gray** gradient, everywhere, also on detail pages. **No color** in the background
   and no tint from the artwork (tvOS's blurred poster background is not used on the web). Allowed alternatives:
   plain dark gray or a fine noise texture.

@@ -161,6 +161,53 @@
     color: var(--text-muted);
 }
 
+/* Captioned cards (VIDEOS libraries): the title is always visible, quiet, right under the image.
+   Hover: the caption follows the image as it grows (scale 1.04), the title brightens and the meta
+   (year · duration) fades in. No pill, no background: the image stays the focus. */
+.card.captioned .cardLabel {
+    top: calc(100% + 8px);
+    left: 2px;
+    right: 2px;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    font-size: 13px;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition: transform 0.15s ease-out;
+}
+
+.card.captioned .cardTitle {
+    color: var(--text-muted);
+    font-weight: 400;
+    transition: color 0.15s ease-out;
+}
+
+.card.captioned .cardMeta {
+    color: var(--text-faint);
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.15s ease-out;
+}
+
+.card.captioned:hover .cardLabel,
+.card.captioned:focus-visible .cardLabel {
+    transform: translateY(5px);
+}
+
+.card.captioned:hover .cardTitle,
+.card.captioned:focus-visible .cardTitle {
+    color: var(--text);
+}
+
+.card.captioned:hover .cardMeta,
+.card.captioned:focus-visible .cardMeta {
+    opacity: 1;
+}
+
 .cardPlay {
     position: absolute;
     z-index: 1;                           /* above the dim overlay */
