@@ -138,6 +138,22 @@ DELETE FROM collections WHERE id NOT IN (
         log.info(f"[Cleanup] Removed {removed} collections without movies")
         await ws_manager.broadcast(Notification(type=NOTIFICATION_TYPE.COLLECTIONS_UPDATED))
 
+async def cleanup_orphaned_series():
+    """Series without episodes, e.g. when all files are gone or the episodes were matched to another serie."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("""
+DELETE FROM series WHERE id NOT IN (
+    SELECT is_episode_of_serie_id FROM movies WHERE is_episode_of_serie_id IS NOT NULL
+)""")
+        removed = cursor.rowcount
+        # References to deleted series (most connections run without foreign_keys=ON, so no cascade)
+        await db.execute("UPDATE movies SET is_extra_of_serie_id = NULL WHERE is_extra_of_serie_id IS NOT NULL AND is_extra_of_serie_id NOT IN (SELECT id FROM series)")
+        await db.commit()
+
+    if removed:
+        log.info(f"[Cleanup] Removed {removed} series without episodes")
+        await ws_manager.broadcast(Notification(type=NOTIFICATION_TYPE.MOVIES_UPDATED))
+
 async def cleanup_orphaned_people():
     """People without any movie, e.g. the cast of a wrong match that was replaced."""
     async with aiosqlite.connect(DB_PATH) as db:

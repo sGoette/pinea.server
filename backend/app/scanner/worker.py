@@ -7,7 +7,7 @@ from app.scanner.scan import scan_libraries
 import logging
 log = logging.getLogger(__name__)
 
-from app.scanner.cleanup import cleanup_orphaned_posters, cleanup_orphaned_movies, cleanup_orphaned_collections, cleanup_orphaned_people
+from app.scanner.cleanup import cleanup_orphaned_posters, cleanup_orphaned_movies, cleanup_orphaned_collections, cleanup_orphaned_series, cleanup_orphaned_people
 
 class ScannerWorker:
     def __init__(self):
@@ -55,6 +55,7 @@ class ScannerWorker:
                 # checks the files itself and has its own guards (missing mount, too many files gone at once).
                 await self._run_cleanup("orphaned movies", lambda: cleanup_orphaned_movies(force=job.force_cleanup))
                 await self._run_cleanup("orphaned collections", cleanup_orphaned_collections)    # collections without movies
+                await self._run_cleanup("orphaned series", cleanup_orphaned_series)              # series without episodes
                 await self._run_cleanup("orphaned people", cleanup_orphaned_people)              # people without movies
                 await self._run_cleanup("orphaned posters", cleanup_orphaned_posters)            # last: needs the final DB state
             finally:
